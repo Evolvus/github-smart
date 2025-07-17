@@ -1,2 +1,0 @@
-# github-smart
-github-smart
