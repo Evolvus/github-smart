@@ -6,12 +6,26 @@ require_once('../config.php');
 
 $pdo = getPDOConnection();
 
+// Input validation function
+function validateInput($input, $type = 'string') {
+    switch ($type) {
+        case 'int':
+            return filter_var($input, FILTER_VALIDATE_INT) !== false ? (int)$input : null;
+        case 'string':
+            return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+        case 'email':
+            return filter_var($input, FILTER_VALIDATE_EMAIL);
+        default:
+            return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+    }
+}
+
 try {
     // Set PDO to throw exceptions on error
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Check the GET parameter to determine the requested data
-    $action = isset($_GET['action']) ? $_GET['action'] : '';
+    $action = validateInput($_GET['action'] ?? '', 'string');
 
     switch ($action) {
         case 'total_count':
@@ -60,17 +74,23 @@ try {
             handleIssuesByCustomer($pdo);
             break;
         default:
+            http_response_code(400);
             echo json_encode(["error" => "Invalid action specified."]);
+            exit;
     }
 } catch (PDOException $e) {
+    http_response_code(500);
     echo json_encode(["error" => "Database Error: " . $e->getMessage()]);
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode(["error" => "Error: " . $e->getMessage()]);
 }
 
 function handleTotalCount($pdo) {
     $query = "SELECT COUNT(*) AS total_count FROM gh_issues";
-    $result = $pdo->query($query)->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
     echo json_encode($result);
 }
 
@@ -79,7 +99,9 @@ function handleIssuesOverTime($pdo) {
               FROM gh_issues
               GROUP BY DATE_FORMAT(assigned_date, '%Y-%m')
               ORDER BY labels";
-    $result = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $labels = array_column($result, 'labels');
     $data = array_column($result, 'data');
@@ -89,18 +111,22 @@ function handleIssuesOverTime($pdo) {
 
 function handleUnassignedCount($pdo) {
     $query = "SELECT COUNT(*) AS total_count FROM gh_issues WHERE assignee = 'UNASSIGNED'";
-    $result = $pdo->query($query)->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
     echo json_encode($result);
 }
 
 function handleLatestIssues($pdo) {
     $query = "SELECT * FROM gh_issues ORDER BY assigned_date DESC LIMIT 5";
-    $result = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($result);
 }
 
 function handleIssuesByProject($pdo) {
-    $project = isset($_GET['projectId']) ? $_GET['projectId'] : '';
+    $project = validateInput($_GET['projectId'] ?? '', 'string');
     $query = "SELECT * FROM gh_issues WHERE 1=1";
     
     if ($project) {
@@ -124,7 +150,7 @@ function handleIssuesByProject($pdo) {
 }
 
 function handleCountByAssignee($pdo) {
-    $count = isset($_GET['count']) ? (int)$_GET['count'] : 0;
+    $count = validateInput($_GET['count'] ?? 0, 'int');
     $query = "SELECT assignee, COUNT(*) AS issue_count FROM gh_issues WHERE assignee <> 'UNASSIGNED'
               GROUP BY assignee ORDER BY issue_count DESC";
     
@@ -144,7 +170,7 @@ function handleCountByAssignee($pdo) {
 }
 
 function handleIssuesByAssignee($pdo) {
-    $assignee = isset($_GET['assignee']) ? $_GET['assignee'] : '';
+    $assignee = validateInput($_GET['assignee'] ?? '', 'string');
     $query = "SELECT *, DATEDIFF(NOW(), assigned_date) AS aging FROM gh_issues WHERE gh_state = 'open'";
     
     if ($assignee) {
@@ -164,7 +190,8 @@ function handleIssuesByAssignee($pdo) {
 }
 
 function handleIssuesByAndTags($pdo) {
-    $tags = isset($_GET['tags']) ? array_filter(explode(',', $_GET['tags'])) : [];
+    $tags = validateInput($_GET['tags'] ?? '', 'string');
+    $tags = array_filter(explode(',', $tags));
     
     if (empty($tags)) {
         $query = "SELECT a.*, DATEDIFF(NOW(), assigned_date) AS aging,tag FROM gh_issues  a
@@ -199,18 +226,23 @@ function handleIssuesByAndTags($pdo) {
 
 function handleAllAssignees($pdo) {
     $query = "SELECT assignee, COUNT(*) AS count_issue FROM gh_issues GROUP BY assignee ORDER BY count_issue DESC";
-    $result = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($result);
 }
 
 function handleLastRetrieve($pdo) {
     $query = "SELECT * FROM gh_audit WHERE action = 'RETRIEVE FROM GITHUB' ORDER BY end_time DESC LIMIT 1";
-    $result = $pdo->query($query)->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
     echo json_encode($result);
 }
 
 function handleIssuesByOrTags($pdo) {
-    $tags = isset($_GET['tags']) ? array_filter(explode(',', $_GET['tags'])) : [];
+    $tags = validateInput($_GET['tags'] ?? '', 'string');
+    $tags = array_filter(explode(',', $tags));
     
     if (empty($tags)) {
         $query = "SELECT a.*, DATEDIFF(NOW(), assigned_date) AS aging,tag FROM gh_issues  a
@@ -239,11 +271,13 @@ function handleIssuesByOrTags($pdo) {
     echo json_encode(["data" => $result]);
 }
 function handleTags($pdo) {
-    $andTags = isset($_GET['and_tags']) ? explode(',', $_GET['and_tags']) : [];
-    $orTags = isset($_GET['or_tags']) ? explode(',', $_GET['or_tags']) : [];
-    $state = isset($_GET['state']) ? $_GET['state'] : 'all';
-    $closedAtStart = isset($_GET['closed_at_start']) ? $_GET['closed_at_start'] : null;
-    $closedAtEnd = isset($_GET['closed_at_end']) ? $_GET['closed_at_end'] : null;
+    $andTags = validateInput($_GET['and_tags'] ?? '', 'string');
+    $andTags = explode(',', $andTags);
+    $orTags = validateInput($_GET['or_tags'] ?? '', 'string');
+    $orTags = explode(',', $orTags);
+    $state = validateInput($_GET['state'] ?? 'all', 'string');
+    $closedAtStart = validateInput($_GET['closed_at_start'] ?? null, 'string');
+    $closedAtEnd = validateInput($_GET['closed_at_end'] ?? null, 'string');
 
     $whereClauses = [];
     $joinClauses = [];
@@ -364,7 +398,9 @@ function handleAllCustomers($pdo) {
         FROM gh_customer c
         ORDER BY count_issue DESC";
         
-    $result = $pdo->query($query)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($result);
 }
 
@@ -390,7 +426,7 @@ function handlePins($pdo) {
 
 // Update handleIssuesByCustomer function to ensure it only fetches for known customer tags:
 function handleIssuesByCustomer($pdo) {
-    $customer = isset($_GET['customer']) ? $_GET['customer'] : '';
+    $customer = validateInput($_GET['customer'] ?? '', 'string');
     if (!$customer) {
         echo json_encode(["data" => []]);
         return;
