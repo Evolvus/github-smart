@@ -1,10 +1,10 @@
 <?php
 session_name("Project");
 session_start();
-require_once('../dbconn.php');
-require_once('../config.php');
+require_once(__DIR__ . '/../dbconn.php');
+require_once(__DIR__ . '/../config.php');
 
-require_once('utilities_project.php');
+require_once(__DIR__ . '/utilities_project.php');
 
 
 

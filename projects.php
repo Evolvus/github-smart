@@ -52,9 +52,12 @@ require_once('head.php');
 <script>
 
     document.addEventListener("DOMContentLoaded", function () {
+        // Test if jQuery and DataTables are loaded
+        console.log('jQuery version:', $.fn.jquery);
+        console.log('DataTables available:', typeof $.fn.DataTable !== 'undefined');
+        
         fetchAndDisplayProjects();
         document.getElementById('project-search').addEventListener('input', filterProjectList);
-
     });
     // Function to filter the project list based on user input and the Unassigned checkbox
     function filterProjectList() {
@@ -87,11 +90,18 @@ require_once('head.php');
 
 
     // Function to fetch project list and populate the left pane
-    // Function to fetch project list and populate the left pane
     function fetchAndDisplayProjects() {
+        console.log('Fetching project list...');
         fetch('api/getProjects.php')
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.status);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Project data received:', data);
                 var projectList = document.getElementById('project-list');
                 var projectCount = document.getElementById('project-count');
 
@@ -99,14 +109,14 @@ require_once('head.php');
                     return project.closed != 1;
                 });
 
-
-
                 projectCount.textContent = dataFiltered.length; // Update project count
                 dataFiltered.forEach(function (project) {
                     var listItem = document.createElement('li');
                     listItem.className = 'list-group-item';
                     listItem.textContent = project.title + ' (' + project.count_of_issues + ')';
                     listItem.addEventListener('click', function () {
+                        console.log('Project clicked:', project);
+                        
                         // Remove selection from other items
                         var allItems = projectList.children;
                         for (var i = 0; i < allItems.length; i++) {
@@ -121,7 +131,10 @@ require_once('head.php');
                     projectList.appendChild(listItem);
                 });
             })
-            .catch(error => console.error('Error fetching project list:', error));
+            .catch(error => {
+                console.error('Error fetching project list:', error);
+                document.getElementById('project-list').innerHTML = '<li class="list-group-item text-danger">Error loading projects</li>';
+            });
     }
 
 
@@ -129,24 +142,36 @@ require_once('head.php');
     function displayProjectDetails(project) {
         var projectDetails = document.getElementById('project-details');
 
-
         projectDetails.innerHTML = `
-               <h4> <a href = '`+ project.url + `'<p>${project.title}</p></a></h4>
-            `;
+            <div class="alert alert-info">
+                <h4><a href="${project.url}" target="_blank">${project.title}</a></h4>
+                <p>Total Issues: ${project.count_of_issues}</p>
+                <p>Project ID: ${project.gh_id}</p>
+            </div>
+        `;
     }
 
    
 
 
     function fetchAndDisplayProjectIssues(projectId) {
+        console.log('Fetching issues for project ID:', projectId);
 
+        // Check if DataTables is loaded
+        if (typeof $.fn.DataTable === 'undefined') {
+            console.error('DataTables is not loaded!');
+            alert('DataTables library is not loaded. Please refresh the page.');
+            return;
+        }
 
         if ($.fn.DataTable.isDataTable('#project-issues-tbl')) {
             $('#project-issues-tbl').DataTable().destroy();
         }
+        
         // Initialize the DataTable with AJAX
         var table = $('#project-issues-tbl').DataTable({
-            //processing: true, // Show loading indicator
+            processing: true, // Show loading indicator
+            serverSide: false, // Client-side processing
             drawCallback: function (settings) {
                 var pagination = $(this).closest('.dataTables_wrapper').find('.dataTables_paginate');
                 pagination.toggle(this.api().page.info().pages > 1);
@@ -156,14 +181,17 @@ require_once('head.php');
 
                 var pagLength = $(this).closest('.dataTables_wrapper').find('.dataTables_length');
                 pagLength.toggle(this.api().page.info().pages > 1);
-
             },
             ajax: {
                 url: 'api/getGHDash.php',
-                type: "GET", // You may need to change the HTTP method if your API requires it
+                type: "GET",
                 data: function (d) {
                     d.action = 'by_project';
                     d.projectId = projectId;
+                },
+                dataSrc: function(json) {
+                    console.log('API Response for project issues:', json);
+                    return json.data || [];
                 }
             },
             dom: 'Bflrtip',
@@ -177,18 +205,16 @@ require_once('head.php');
                     exportOptions: {
                         orthogonal: 'export',
                         modifier: {
-                            // DataTables core
-                            order: 'index', // 'current', 'applied',
-                            //'index', 'original'
-                            page: 'all', // 'all', 'current'
-                            search: 'applied' // 'none', 'applied', 'removed'
+                            order: 'index',
+                            page: 'all',
+                            search: 'applied'
                         },
-                        columns: [0, 1, 2, 3, 4, 5]
+                        columns: [0, 1, 2, 3]
                     }
                 }
             ],
             columns: [
-                { "data": "gh_id" }, // Replace with your actual data keys
+                { "data": "gh_id" },
                 {
                     data: 'issue_text',
                     render: function (data, type, row) {
@@ -199,11 +225,16 @@ require_once('head.php');
                     }
                 },
                 { "data": "repo" },
-                //{ "data": "gh_project_title" },
-                //{ "data": "assignee" },
                 { "data": "assignee" }
             ],
-            order: [[1, "asc"]] // Initial sorting column and direction
+            order: [[1, "asc"]], // Initial sorting column and direction
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+            language: {
+                processing: "Loading issues...",
+                emptyTable: "No issues found for this project",
+                zeroRecords: "No matching issues found"
+            }
         });
     }
     // Call the function to fetch and display projects

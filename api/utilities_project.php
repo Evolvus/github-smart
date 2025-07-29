@@ -3,7 +3,7 @@
 
 
 //require '../vendor/autoload.php'; // Include Guzzle library
-require_once('../config.php');
+require_once(__DIR__ . '/../config.php');
 
 
 
@@ -189,6 +189,7 @@ function getProject1($repo) {
     $client = new GuzzleHttp\Client();
     try {
         // Make a POST request to the GitHub GraphQL API
+        global $GITHUB_API_TOKEN, $APP_NAME;
         $response = $client->post($api_url, [
             'headers' => [
                 'Authorization' => 'Bearer ' . $GITHUB_API_TOKEN,
