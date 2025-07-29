@@ -49,6 +49,10 @@ require_once('head.php');
 
 <script>
      document.addEventListener("DOMContentLoaded", function () {
+        // Test if jQuery and DataTables are loaded
+        console.log('jQuery version:', $.fn.jquery);
+        console.log('DataTables available:', typeof $.fn.DataTable !== 'undefined');
+        
         fetchAndDisplayAssignees();
         document.getElementById('assignee-search').addEventListener('input', filterAssigneeList);
      });
@@ -85,9 +89,17 @@ require_once('head.php');
 
     // Function to fetch assignee list and populate the left pane
     function fetchAndDisplayAssignees() {
+        console.log('Fetching assignee list...');
         fetch('api/getGHDash.php?action=assignee')
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.status);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Assignee data received:', data);
                 var assigneeList = document.getElementById('assignee-list');
                 var assigneeCount = document.getElementById('assignee-count');
 
@@ -100,6 +112,8 @@ require_once('head.php');
                     listItem.className = 'list-group-item';
                     listItem.textContent = assignee.assignee + " (" + assignee.count_issue + ") ";
                     listItem.addEventListener('click', function () {
+                        console.log('Assignee clicked:', assignee);
+                        
                         // Remove selection from other items
                         var allItems = assigneeList.children;
                         for (var i = 0; i < allItems.length; i++) {
@@ -114,29 +128,43 @@ require_once('head.php');
                     assigneeList.appendChild(listItem);
                 });
             })
-            .catch(error => console.error('Error fetching assignee list:', error));
+            .catch(error => {
+                console.error('Error fetching assignee list:', error);
+                document.getElementById('assignee-list').innerHTML = '<li class="list-group-item text-danger">Error loading assignees</li>';
+            });
     }
 
     // Function to display assignee details in the right pane
     function displayAssigneeDetails(assignee) {
         var assigneeDetails = document.getElementById('assignee-details');
 
-
         assigneeDetails.innerHTML = `
-               <h4> `+ assignee.assignee + `</h4>
-            `;
+            <div class="alert alert-info">
+                <h4>${assignee.assignee}</h4>
+                <p>Total Issues: ${assignee.count_issue}</p>
+            </div>
+        `;
     }
 
     // Function to fetch and display issues for the selected assignee using DataTables
     function fetchAndDisplayAssigneeIssues(assignee) {
+        console.log('Fetching issues for assignee:', assignee.assignee);
 
+        // Check if DataTables is loaded
+        if (typeof $.fn.DataTable === 'undefined') {
+            console.error('DataTables is not loaded!');
+            alert('DataTables library is not loaded. Please refresh the page.');
+            return;
+        }
 
         if ($.fn.DataTable.isDataTable('#assignee-issues-tbl')) {
             $('#assignee-issues-tbl').DataTable().destroy();
         }
+        
         // Initialize the DataTable with AJAX
         var table = $('#assignee-issues-tbl').DataTable({
-            //processing: true, // Show loading indicator
+            processing: true, // Show loading indicator
+            serverSide: false, // Client-side processing
             drawCallback: function (settings) {
                 var pagination = $(this).closest('.dataTables_wrapper').find('.dataTables_paginate');
                 pagination.toggle(this.api().page.info().pages > 1);
@@ -146,14 +174,17 @@ require_once('head.php');
 
                 var pagLength = $(this).closest('.dataTables_wrapper').find('.dataTables_length');
                 pagLength.toggle(this.api().page.info().pages > 1);
-
             },
             ajax: {
                 url: 'api/getGHDash.php',
-                type: "GET", // You may need to change the HTTP method if your API requires it
+                type: "GET",
                 data: function (d) {
                     d.action = 'by_assignee';
                     d.assignee = assignee.assignee;
+                },
+                dataSrc: function(json) {
+                    console.log('API Response:', json);
+                    return json.data || [];
                 }
             },
             dom: 'Bflrtip',
@@ -167,18 +198,16 @@ require_once('head.php');
                     exportOptions: {
                         orthogonal: 'export',
                         modifier: {
-                            // DataTables core
-                            order: 'index', // 'current', 'applied',
-                            //'index', 'original'
-                            page: 'all', // 'all', 'current'
-                            search: 'applied' // 'none', 'applied', 'removed'
+                            order: 'index',
+                            page: 'all',
+                            search: 'applied'
                         },
                         columns: [0, 1, 2, 3, 4, 5]
                     }
                 }
             ],
             columns: [
-                { "data": "gh_id" }, // Replace with your actual data keys
+                { "data": "gh_id" },
                 {
                     data: 'issue_text',
                     render: function (data, type, row) {
@@ -193,7 +222,14 @@ require_once('head.php');
                 { "data": "assigned_date" },
                 { "data": "aging" }
             ],
-            order: [[4, "asc"]] // Initial sorting column and direction
+            order: [[4, "asc"]], // Initial sorting column and direction
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+            language: {
+                processing: "Loading issues...",
+                emptyTable: "No issues found for this assignee",
+                zeroRecords: "No matching issues found"
+            }
         });
     }
 

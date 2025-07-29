@@ -1,10 +1,21 @@
 <?php
 
-// Error reporting configuration
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/app.log');
+// Security: Environment-based error reporting
+$isProduction = ($_ENV['APP_ENV'] ?? 'development') === 'production';
+
+if ($isProduction) {
+    // Production: Hide all errors
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    ini_set('error_log', __DIR__ . '/app.log');
+} else {
+    // Development: Show errors but log them
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ini_set('log_errors', 1);
+    ini_set('error_log', __DIR__ . '/app.log');
+}
 
 // Custom error logging function
 function logError($message, $type = 'ERROR', $context = []) {
@@ -30,7 +41,10 @@ function logInfo($message, $context = []) {
 
 // Custom debug logging function
 function logDebug($message, $context = []) {
-    logError($message, 'DEBUG', $context);
+    global $isProduction;
+    if (!$isProduction) {
+        logError($message, 'DEBUG', $context);
+    }
 }
 
 // Set up error handler to catch all errors
@@ -71,7 +85,8 @@ set_exception_handler(function($exception) {
 logInfo("Application started", [
     'php_version' => PHP_VERSION,
     'memory_limit' => ini_get('memory_limit'),
-    'max_execution_time' => ini_get('max_execution_time')
+    'max_execution_time' => ini_get('max_execution_time'),
+    'environment' => $isProduction ? 'production' : 'development'
 ]);
 
 $GITHUB_API_TOKEN = $_ENV['GITHUB_TOKEN'] ?? null; 
