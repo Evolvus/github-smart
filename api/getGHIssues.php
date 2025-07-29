@@ -1,7 +1,7 @@
 <?php
 session_name("Project");
 session_start();
-require_once('../../dbconn.php');
+require_once('../dbconn.php');
 require_once('../config.php');
 
 require_once('utilities_project.php');
@@ -58,31 +58,41 @@ function insertUnassignedProjectData($pdo) {
 
 
 function insertIssueIntoDatabase($pdo, $issue, $proj) {
-    $labels = $issue['labels'];
+    // Add error handling for missing array keys
+    if (!is_array($issue)) {
+        logError("Invalid issue data received", 'API_ERROR', ['issue' => $issue]);
+        return;
+    }
+    
+    $labels = $issue['labels'] ?? [];
     
     if (isset($issue['pull_request'])) {
         return;
     }
 
-    $gh_id = $issue['number'];
-    $gh_node_id = $issue['node_id'];
-    $gh_id_url = $issue['html_url'];
-    $repo = $issue['repository']['name'];
-    $repo_url = $issue['repository']['html_url'];
+    // Safely extract issue data with error handling
+    $gh_id = $issue['number'] ?? 0;
+    $gh_node_id = $issue['node_id'] ?? '';
+    $gh_id_url = $issue['html_url'] ?? '';
+    $repo = $issue['repository']['name'] ?? '';
+    $repo_url = $issue['repository']['html_url'] ?? '';
     $gh_project_url = ''; // You may need to extract this information from your GitHub issue data
-    $issue_text = $issue['title'];
+    $issue_text = $issue['title'] ?? '';
     $client = ''; // You may need to extract this information from your GitHub issue data
-    $assigned_date = date('Y-m-d', strtotime($issue['created_at']));
+    $assigned_date = isset($issue['created_at']) ? date('Y-m-d', strtotime($issue['created_at'])) : date('Y-m-d');
     $target_date = !empty($issue['due_date']) ? date('Y-m-d', strtotime($issue['due_date'])) : null; // Ensure valid date or NULL
-    $assignee = $issue['assignees'][0]['login'] ?? 'UNASSIGNED';
+    $assignee = isset($issue['assignees'][0]['login']) ? $issue['assignees'][0]['login'] : 'UNASSIGNED';
     $gh_json = json_encode($issue);
-    $updated_at = date('Y-m-d H:i:s', strtotime($issue['updated_at']));
+    $updated_at = isset($issue['updated_at']) ? date('Y-m-d H:i:s', strtotime($issue['updated_at'])) : date('Y-m-d H:i:s');
     $closed_at = !empty($issue['closed_at']) ? date('Y-m-d', strtotime($issue['closed_at'])) : null;
-    $state = $issue['state'];
+    $state = $issue['state'] ?? 'open';
 
     if ($proj) {
         $gh_project = $proj['id'] ?? '';
         $gh_project_title = $proj['title'] ?? '';
+    } else {
+        $gh_project = '';
+        $gh_project_title = '';
     }
 
     // Insert issue into the database
@@ -107,7 +117,7 @@ function insertIssueIntoDatabase($pdo, $issue, $proj) {
     $stmt->bindParam(':gh_project', $gh_project);
     $stmt->bindParam(':gh_project_title', $gh_project_title);
     $stmt->bindParam(':updated_at', $updated_at);
-    $stmt->bindParam(':closed_at', $closed_at);
+    $stmt->bindParam(':closed_at', $closed_at, PDO::PARAM_NULL);
     $stmt->bindParam(':gh_state', $state);
 
     try {
@@ -117,21 +127,25 @@ function insertIssueIntoDatabase($pdo, $issue, $proj) {
         return;
     }
 
-    foreach ($labels as $label) {
-        $tag = $label['name'];
-        $color = $label['color'];
-        $stmt = $pdo->prepare(
-            "INSERT INTO gh_issue_tags (gh_node_id, tag, color) VALUES (:gh_node_id, :tag, :color)"
-        );
-        
-        $stmt->bindParam(':gh_node_id', $gh_node_id);
-        $stmt->bindParam(':tag', $tag);
-        $stmt->bindParam(':color', $color);
+    if (is_array($labels)) {
+        foreach ($labels as $label) {
+            if (is_array($label) && isset($label['name']) && isset($label['color'])) {
+                $tag = $label['name'];
+                $color = $label['color'];
+                $stmt = $pdo->prepare(
+                    "INSERT INTO gh_issue_tags (gh_node_id, tag, color) VALUES (:gh_node_id, :tag, :color)"
+                );
+                
+                $stmt->bindParam(':gh_node_id', $gh_node_id);
+                $stmt->bindParam(':tag', $tag);
+                $stmt->bindParam(':color', $color);
 
-        try {
-            $stmt->execute();
-        } catch (PDOException $e) {
-            write_log("Database Error: " . $e->getMessage());
+                try {
+                    $stmt->execute();
+                } catch (PDOException $e) {
+                    write_log("Database Error: " . $e->getMessage());
+                }
+            }
         }
     }
 }
@@ -161,36 +175,48 @@ try {
 
     $arr = getProjectIssues($GITHUB_ORG,$GITHUB_API_TOKEN);
 
-
-    $projects = array();
-    foreach($arr as $key => $value){
-        $x = $value['id'];
-        $project = $value;
-
-        if(!$projects[$x]){
-            $project = $value;
-            $project['count_of_issues'] = 1;
-
-            $projects[$x] = $project;
-            
-
-        } else{
-            $projects[$x]['count_of_issues'] ++;
-        }
-        
+    // Check if getProjectIssues returned an error string instead of an array
+    if (!is_array($arr)) {
+        logError("GraphQL API failed, falling back to REST API only", 'API_WARNING', [
+            'error' => $arr,
+            'github_org' => $GITHUB_ORG
+        ]);
+        $arr = array(); // Empty array for projects
     }
 
-    foreach($projects as $key => $value){
+    $projects = array();
+    if (is_array($arr) && !empty($arr)) {
+        foreach($arr as $key => $value){
+            $x = $value['id'];
+            $project = $value;
 
+            if(!$projects[$x]){
+                $project = $value;
+                $project['count_of_issues'] = 1;
 
-        insertProjectData($pdo, $value['id'], $value['title'], $value['url'] , $value['closed'],  $value['count_of_issues']);
+                $projects[$x] = $project;
+                
 
+            } else{
+                $projects[$x]['count_of_issues'] ++;
+            }
+            
+        }
+
+        foreach($projects as $key => $value){
+            insertProjectData($pdo, $value['id'], $value['title'], $value['url'] , $value['closed'],  $value['count_of_issues']);
+        }
+    } else {
+        logInfo("No projects found or GraphQL API unavailable", [
+            'projects_count' => 0
+        ]);
     }
    
 
 
 
     while (true) {
+        echo $GITHUB_ORG;
         $api_url = "https://api.github.com/orgs/$GITHUB_ORG/issues?filter=all&state=all&per_page=99&page=$page";
 
         // Fetch issues from GitHub API
@@ -218,8 +244,9 @@ try {
         
 
         foreach ($issues as $issue) {
-
-            insertIssueIntoDatabase($pdo, $issue,$arr[$issue['node_id']]);
+            // Check if we have project data for this issue
+            $projectData = (is_array($arr) && isset($arr[$issue['node_id']])) ? $arr[$issue['node_id']] : null;
+            insertIssueIntoDatabase($pdo, $issue, $projectData);
         }
 
         // Increment the page counter

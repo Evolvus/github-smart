@@ -2,7 +2,7 @@
 <?php
 
 
-require '../../vendor/autoload.php'; // Include Guzzle library
+//require '../vendor/autoload.php'; // Include Guzzle library
 require_once('../config.php');
 
 

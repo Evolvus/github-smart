@@ -1,7 +1,7 @@
 <?php
 session_name("Project");
 session_start();
-require_once('../../dbconn.php');
+require_once('../dbconn.php');
 
 require_once('../config.php');
 
