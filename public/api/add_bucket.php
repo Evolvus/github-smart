@@ -2,24 +2,26 @@
 use App\Utils\Database;
 use App\Utils\Logger;
 
-require_once(__DIR__ . "/../vendor/autoload.php");
-require_once(__DIR__ . "/../config/database.php");
+require_once(__DIR__ . "/../../vendor/autoload.php");
+require_once(__DIR__ . "/../../config/database.php");
 
 try {
     $pdo = Database::getPDOConnection();
 
-    $bucketId = $_POST['bucket_id'];
+    $bucketName = $_POST['name'];
 
-    Logger::writeLog("POST DELETE BUCKET: ID " . $bucketId);
+    Logger::writeLog("POST NEW BUCKET " . $bucketName);
 
-    // Delete the bucket from the database
-    $query = "DELETE FROM gh_buckets WHERE id = :id";
+    // Insert the new bucket into the database
+    $query = "INSERT INTO gh_buckets (name) VALUES (:name)";
     $stmt = $pdo->prepare($query);
 
     $response = ['success' => false];
 
-    if ($stmt->execute(['id' => $bucketId])) {
+    if ($stmt->execute(['name' => $bucketName])) {
         $response['success'] = true;
+        $response['id'] = $pdo->lastInsertId();
+        $response['name'] = $bucketName;
     }
 
     Logger::writeLog(json_encode($response));

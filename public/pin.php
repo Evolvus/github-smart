@@ -159,26 +159,26 @@ require_once('head.php');
             const tags = issue.tags ? issue.tags.split(', ').map(tag => {
                 const label = labels.find(l => l.name === tag.trim());
                 const color = label ? label.color : 'gray';
-                return `<span class="badge badge-secondary mr-1" style="background-color: #${color}">${tag.trim()}</span>`;
+                return '<span class="badge badge-secondary mr-1" style="background-color: #' + color + '">' + tag.trim() + '</span>';
             }).join(' ') : '';
 
-            cards += `
-                <div class="col-md-4 mb-4" draggable="true" ondragstart="drag(event)" id="issue-${issue.gh_node_id}">
-                    <div class="card">
-                        <div class="card-header">
-                            ${issue.issue_text} <a href="${issue.gh_id_url}" target="_blank">#${issue.gh_id}</a>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text"><strong>Assignee:</strong> ${issue.assignee}</p>
-                            <p class="card-text"><strong>Repository:</strong> ${issue.repo}</p>
-                            <p class="card-text"><strong>Assigned Date:</strong> ${issue.assigned_date}</p>
-                            <p class="card-text"><strong>Aging:</strong> ${issue.aging}</p>
-                            <p class="card-text"><strong>Tags:</strong> ${tags}</p>
-                            <button class="btn btn-info view-details" data-body="${issue.body}" data-bs-toggle="modal" data-bs-target="#issueModal">Details</button>
-                        </div>
-                        <i class="fa fa-paperclip clip-issue" data-issue-number="${issue.gh_node_id}"></i>
-                    </div>
-                </div>`;
+            cards += 
+                '<div class="col-md-4 mb-4" draggable="true" ondragstart="drag(event)" id="issue-' + issue.gh_node_id + '">' +
+                    '<div class="card">' +
+                        '<div class="card-header">' +
+                            issue.issue_text + ' <a href="' + issue.gh_id_url + '" target="_blank">#' + issue.gh_id + '</a>' +
+                        '</div>' +
+                        '<div class="card-body">' +
+                            '<p class="card-text"><strong>Assignee:</strong> ' + issue.assignee + '</p>' +
+                            '<p class="card-text"><strong>Repository:</strong> ' + issue.repo + '</p>' +
+                            '<p class="card-text"><strong>Assigned Date:</strong> ' + issue.assigned_date + '</p>' +
+                            '<p class="card-text"><strong>Aging:</strong> ' + issue.aging + '</p>' +
+                            '<p class="card-text"><strong>Tags:</strong> ' + tags + '</p>' +
+                            '<button class="btn btn-info view-details" data-body="' + issue.body + '" data-bs-toggle="modal" data-bs-target="#issueModal">Details</button>' +
+                        '</div>' +
+                        '<i class="fa fa-paperclip clip-issue" data-issue-number="' + issue.gh_node_id + '"></i>' +
+                    '</div>' +
+                '</div>';
         });
 
         if (currentPage === 1) {

@@ -1,9 +1,8 @@
 
 <?php
 
-
-//require '../vendor/autoload.php'; // Include Guzzle library
-require_once(__DIR__ . '/../config/app.php');
+require_once(__DIR__ . '/../../vendor/autoload.php'); // Include Guzzle library
+require_once(__DIR__ . '/../../config/app.php');
 
 
 
@@ -13,14 +12,14 @@ function getProjectIssues($org,$token){
     $query = <<<QUERY
     {
         organization(login: "{$org}") {
-            projectsV2(first: 80) {
+            projectsV2(first: 10) {
                 nodes {
                     id 
                     number
                     title
                     url
                     closed
-                    items(first: 20) { 
+                    items(first: 50) { 
                         nodes{
                             content { 
                                 ... on Issue { 
@@ -28,7 +27,7 @@ function getProjectIssues($org,$token){
                                     title 
                                     closed
                                     updatedAt
-                                    labels(first: 10) {
+                                    labels(first: 20) {
                                         nodes {
                                             name
                                             color
@@ -68,15 +67,11 @@ function getProjectIssues($org,$token){
 
             foreach($data['data']['organization']['projectsV2']['nodes'] as $proj){
                 if(empty($proj) || $proj['closed']){
-                    
                     continue;
                 }
-                //echo $proj['title'].'<br>';
+                
                 foreach($proj['items']['nodes'] as $issues){
-
-                    //echo json_encode($issues );
                     if(empty($issues) || empty($issues['content']) || $issues['content']['closed']){
-
                         continue;
                     }
                     
@@ -86,16 +81,10 @@ function getProjectIssues($org,$token){
                     $project['closed'] = $proj['closed'];
                     $project['url'] = $proj['url'];
                     $project_issue[$id] = $project;
-                    
-                    
                 }
             }
 
-            
-
-            // Access the GraphQL response data
-
-            return $project_issue ;
+            return $project_issue;
 
         } else {
             return 'Error: Unable to fetch data from GitHub API.';

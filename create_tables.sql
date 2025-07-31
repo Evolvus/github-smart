@@ -87,5 +87,17 @@ INSERT INTO expense_perm_matrix (emp_id, view_perm, create_perm, edit_perm, pay_
 VALUES (0, 1, 1, 1, 1, 1, 1) 
 ON DUPLICATE KEY UPDATE view_perm = 1, create_perm = 1, edit_perm = 1, pay_perm = 1, auth_perm = 1, del_perm = 1;
 
+-- Create gh_audit table for tracking API operations
+CREATE TABLE IF NOT EXISTS gh_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(255) NOT NULL,
+    start_time DATETIME,
+    end_time DATETIME,
+    status VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_action (action),
+    INDEX idx_end_time (end_time)
+);
+
 -- Show table creation results
 SHOW TABLES; 

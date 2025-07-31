@@ -383,15 +383,15 @@ require_once('head.php');
         const bucketsToShow = allBuckets.slice(start, end);
 
         bucketsToShow.forEach(bucket => {
-            console.log(bucket);
+
             const bucketDiv = document.createElement('div');
             bucketDiv.classList.add('bucket', 'empty'); // Initially mark as empty
-            bucketDiv.id = `bucket${bucket.id}`;
-            bucketDiv.innerHTML = `<h3>${bucket.name}</h3><input type="text" value="${bucket.name}" />`;
+            bucketDiv.id = 'bucket' + bucket.id;
+            bucketDiv.innerHTML = '<h3>' + bucket.name + '</h3><input type="text" value="' + bucket.name + '" />';
 
             // Add delete button only if it's not the default bucket
             if (bucket.id != 1) {
-                bucketDiv.innerHTML += `<button class="delete-bucket">&times;</button>`;
+                bucketDiv.innerHTML += '<button class="delete-bucket">&times;</button>';
             }
 
             container.appendChild(bucketDiv);
@@ -432,13 +432,13 @@ require_once('head.php');
 function createIssues() {
     // Clear all issues from current buckets
     allBuckets.forEach(bucket => {
-        const bucketDiv = document.getElementById(`bucket${bucket.id}`);
+        const bucketDiv = document.getElementById('bucket' + bucket.id);
         if (bucketDiv) {
             if(bucket.id != 1){
-                bucketDiv.innerHTML = `<h3>${bucket.name}</h3><input type="text" value="${bucket.name}" /><button class="delete-bucket">&times;</button>`;
+                bucketDiv.innerHTML = '<h3>' + bucket.name + '</h3><input type="text" value="' + bucket.name + '" /><button class="delete-bucket">&times;</button>';
             }
             else{
-                bucketDiv.innerHTML = `<h3>${bucket.name}</h3><input type="text" value="${bucket.name}" />`;
+                bucketDiv.innerHTML = '<h3>' + bucket.name + '</h3><input type="text" value="' + bucket.name + '" />';
             }
             
             const h3 = bucketDiv.querySelector('h3');
@@ -471,7 +471,7 @@ function createIssues() {
     });
 
     allIssues.forEach(issue => {
-        const bucketId = issue.bucket ? `bucket${issue.bucket}` : 'bucket1'; // Default to bucket1 if no bucket is assigned
+        const bucketId = issue.bucket ? 'bucket' + issue.bucket : 'bucket1'; // Default to bucket1 if no bucket is assigned
         const bucketDiv = document.getElementById(bucketId);
         if (bucketDiv) {
             bucketDiv.classList.remove('empty'); // Mark bucket as not empty
@@ -498,33 +498,31 @@ function createIssues() {
         card.draggable = true;
         card.ondragstart = dragStart;
         card.ondragend = dragEnd;
-        card.id = `issue-${issue.gh_node_id}`;
+        card.id = 'issue-' + issue.gh_node_id;
         if(currentView == 'EXPAND'){
-            card.innerHTML = `
-                <div class="card">
-                    <div class="card-header">
-                        ${issue.issue_text} <a href="${issue.gh_id_url}" target="_blank">#${issue.gh_id}</a>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text"><strong>Assignee:</strong> ${issue.assignee}</p>
-                        <button class="btn btn-info view-details" data-body="${issue.body}" data-bs-toggle="modal" data-bs-target="#issueModal">Details</button>
-                    </div>
-                    <i class="fa fa-paperclip clip-issue" data-issue-number="${issue.gh_node_id}"></i>
-                </div>
-            `;
+            card.innerHTML = 
+                '<div class="card">' +
+                    '<div class="card-header">' +
+                        issue.issue_text + ' <a href="' + issue.gh_id_url + '" target="_blank">#' + issue.gh_id + '</a>' +
+                    '</div>' +
+                    '<div class="card-body">' +
+                        '<p class="card-text"><strong>Assignee:</strong> ' + issue.assignee + '</p>' +
+                        '<button class="btn btn-info view-details" data-body="' + issue.body + '" data-bs-toggle="modal" data-bs-target="#issueModal">Details</button>' +
+                    '</div>' +
+                    '<i class="fa fa-paperclip clip-issue" data-issue-number="' + issue.gh_node_id + '"></i>' +
+                '</div>';
         }
         else {
-            card.innerHTML = `
-                <div class="card">
-                    <div class="card-header">
-                        ${issue.issue_text} <a href="${issue.gh_id_url}" target="_blank">#${issue.gh_id}</a>
-                    </div>
-                    <div class="card-body">
-                        <button class="btn btn-info view-details" data-body="${issue.body}" data-bs-toggle="modal" data-bs-target="#issueModal">Details</button>
-                    </div>
-                    <i class="fa fa-paperclip clip-issue" data-issue-number="${issue.gh_node_id}"></i>
-                </div>
-            `;
+            card.innerHTML = 
+                '<div class="card">' +
+                    '<div class="card-header">' +
+                        issue.issue_text + ' <a href="' + issue.gh_id_url + '" target="_blank">#' + issue.gh_id + '</a>' +
+                    '</div>' +
+                    '<div class="card-body">' +
+                        '<button class="btn btn-info view-details" data-body="' + issue.body + '" data-bs-toggle="modal" data-bs-target="#issueModal">Details</button>' +
+                    '</div>' +
+                    '<i class="fa fa-paperclip clip-issue" data-issue-number="' + issue.gh_node_id + '"></i>' +
+                '</div>';
         }
         
         return card;
@@ -562,7 +560,7 @@ function createIssues() {
 
 function dragEnd(e) {
     if (draggedIssue) {
-        const previousBucket = document.getElementById(`bucket${draggedIssue.bucketId}`);
+        const previousBucket = document.getElementById('bucket' + draggedIssue.bucketId);
         if (!previousBucket.querySelector('.card-container')) {
             previousBucket.classList.add('empty'); // Mark previous bucket as empty if no issues remain
         }
@@ -628,7 +626,7 @@ function dragEnd(e) {
             if (issueIndex !== -1) {
                 allIssues[issueIndex].bucket = newBucketId;
             }
-            console.log('Bucket updated:', data);
+
         } else {
             console.error('Error updating bucket:', data);
         }
@@ -648,7 +646,7 @@ function dragEnd(e) {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Bucket name updated:', data);
+
         })
         .catch(error => console.error('Error updating bucket name:', error));
     }
@@ -660,7 +658,7 @@ function dragEnd(e) {
         return;
     }
 
-    console.log('about to delete:', bucketId);
+    
     if (!confirm('Are you sure you want to delete this bucket?')) {
         return;
     }
@@ -679,7 +677,7 @@ function dragEnd(e) {
             allBuckets = allBuckets.filter(bucket => bucket.id !== bucketId);
             totalPages = Math.ceil(allBuckets.length / bucketsPerPage);
             displayBuckets(); // Refresh buckets after deletion
-            console.log('Bucket deleted:', data);
+
         } else {
             console.error('Error deleting bucket:', data);
         }
@@ -715,7 +713,7 @@ function dragEnd(e) {
     }
 
     function addNewBucket() {
-        const bucketName = `New Bucket ${allBuckets.length + 1}`;
+        const bucketName = 'New Bucket ' + (allBuckets.length + 1);
         const formData = new FormData();
         formData.append('name', bucketName);
 

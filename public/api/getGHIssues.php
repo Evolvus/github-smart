@@ -1,16 +1,52 @@
 <?php
 session_name("Project");
 session_start();
-require_once(__DIR__ . '/../config/database.php');
-require_once(__DIR__ . '/../config/app.php');
+require_once(__DIR__ . '/../../config/database.php');
+require_once(__DIR__ . '/../../config/app.php');
 
 require_once(__DIR__ . '/utilities_project.php');
+
+
+error_log("getGHIssues.php started");
+
+// Check if GitHub token is configured
+if (empty($GITHUB_API_TOKEN) || $GITHUB_API_TOKEN === 'your_github_token_here') {
+    $responseArray = [
+        'status' => 'error',
+        'message' => 'GitHub API token not configured. Please set GITHUB_TOKEN in docker.env file.',
+        'requires_setup' => true
+    ];
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+        header('Content-Type: application/json');
+        echo json_encode($responseArray);
+    } else {
+        echo $responseArray['message'];
+    }
+    exit;
+}
+
+
+error_log("GitHub API Token: " . ($GITHUB_API_TOKEN ? 'SET' : 'NOT SET'));
+
+// Initialize variables
+$startTime = date("Y-m-d H:i:s");
+$page = 1;
 
 
 
 
 
 $pdo = getPDOConnection();
+if (!$pdo) {
+    $responseArray = "Database connection failed. Please check your database configuration.";
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+        header('Content-Type: application/json');
+        echo json_encode($responseArray);
+    } else {
+        echo $responseArray;
+    }
+    exit;
+}
 date_default_timezone_set("Asia/Kolkata");
 
 
@@ -193,14 +229,10 @@ try {
             if(!$projects[$x]){
                 $project = $value;
                 $project['count_of_issues'] = 1;
-
                 $projects[$x] = $project;
-                
-
             } else{
                 $projects[$x]['count_of_issues'] ++;
             }
-            
         }
 
         foreach($projects as $key => $value){
@@ -211,12 +243,8 @@ try {
             'projects_count' => 0
         ]);
     }
-   
-
-
 
     while (true) {
-        echo $GITHUB_ORG;
         $api_url = "https://api.github.com/orgs/$GITHUB_ORG/issues?filter=all&state=all&per_page=99&page=$page";
 
         // Fetch issues from GitHub API
@@ -232,17 +260,12 @@ try {
 
         $issues = json_decode($response, true);
 
-        
-        
-
         // If there are no more issues, break out of the loop
         if (empty($issues)) {
             break;
         }
 
         // Loop through GitHub issues and insert into MySQL database
-        
-
         foreach ($issues as $issue) {
             // Check if we have project data for this issue
             $projectData = (is_array($arr) && isset($arr[$issue['node_id']])) ? $arr[$issue['node_id']] : null;
@@ -256,25 +279,31 @@ try {
      //Insert issues unassigned to any projects
      insertUnassignedProjectData($pdo);
 
-    $responseArray = "Issues inserted successfully!";
+    $responseArray = [
+        'status' => 'success',
+        'message' => 'Issues inserted successfully!',
+        'timestamp' => date("Y-m-d H:i:s")
+    ];
     insertAuditData($pdo, "RETRIEVE FROM GITHUB", $startTime, date("Y-m-d H:i:s"));
 } catch (PDOException $e) {
     write_log( "Database Error: " . $e->getMessage());
-    $responseArray = "Database Error: " . $e->getMessage();
+    $responseArray = [
+        'status' => 'error',
+        'message' => 'Database Error: ' . $e->getMessage()
+    ];
 } catch (Exception $e) {
     write_log( "Database Error: " . $e->getMessage());
-    $responseArray = "Error: " . $e->getMessage();
+    $responseArray = [
+        'status' => 'error',
+        'message' => 'Error: ' . $e->getMessage()
+    ];
 }
 
 // if requested by AJAX request return JSON response
 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
     header('Content-Type: application/json');
-    write_log( json_encode($responseArray));
-
     echo json_encode($responseArray);
 } else {
-    write_log($responseArray);
-
     echo $responseArray;
 }
 ?>

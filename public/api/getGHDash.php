@@ -4,9 +4,9 @@ use App\Utils\Logger;
 
 session_name("Project");
 session_start();
-require_once(__DIR__ . "/../vendor/autoload.php");
-require_once(__DIR__ . "/../config/database.php");
-require_once(__DIR__ . "/../config/app.php");
+require_once(__DIR__ . "/../../vendor/autoload.php");
+require_once(__DIR__ . "/../../config/database.php");
+require_once(__DIR__ . "/../../config/app.php");
 
 $pdo = Database::getPDOConnection();
 
@@ -239,11 +239,22 @@ function handleAllAssignees($pdo) {
 }
 
 function handleLastRetrieve($pdo) {
-    $query = "SELECT * FROM gh_audit WHERE action = 'RETRIEVE FROM GITHUB' ORDER BY end_time DESC LIMIT 1";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    echo json_encode($result);
+    try {
+        $query = "SELECT * FROM gh_audit WHERE action = 'RETRIEVE FROM GITHUB' ORDER BY end_time DESC LIMIT 1";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result === false) {
+            echo json_encode(null);
+        } else {
+            echo json_encode($result);
+        }
+    } catch (Exception $e) {
+        Logger::logError("LastRetrieve Error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(["error" => "LastRetrieve Error: " . $e->getMessage()]);
+    }
 }
 
 function handleIssuesByOrTags($pdo) {

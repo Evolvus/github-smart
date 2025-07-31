@@ -1,3 +1,6 @@
+<?php
+require_once 'bootstrap.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -22,7 +25,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" referrerpolicy="no-referrer" />
 
     <!-- Include Bootcomplete CSS -->
-    <link href="script/bootcomplete.css" rel="stylesheet" type="text/css" />
+    <!-- <link href="script/bootcomplete.css" rel="stylesheet" type="text/css" /> -->
     
     <style>
         /* Custom CSS */

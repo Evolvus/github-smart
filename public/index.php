@@ -79,16 +79,27 @@ require_once('head.php');
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        retrieveData();
-        document.getElementById('retrieve').addEventListener("click", retrieveIssuesFromGithub);
+        try {
+            retrieveData();
+            const retrieveButton = document.getElementById('retrieve');
+            if (retrieveButton) {
+                retrieveButton.addEventListener("click", retrieveIssuesFromGithub);
+            }
+        } catch (error) {
+            console.error('Error during initialization:', error);
+        }
     });
 
     function retrieveData() {
-        retrieveTotalIssuesCount();
-        retrieveTop5ByAssignee();
-        retrieveLatestIssues();
-        retrieveIssuesOverTime();
-        retrieveLastRetrieved();
+        try {
+            retrieveTotalIssuesCount();
+            retrieveTop5ByAssignee();
+            retrieveLatestIssues();
+            retrieveIssuesOverTime();
+            retrieveLastRetrieved();
+        } catch (error) {
+            console.error('Error in retrieveData:', error);
+        }
     }
 
     function retrieveIssuesFromGithub() {
@@ -105,14 +116,36 @@ require_once('head.php');
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(''),
         })
-        .then(response => response.ok ? response.json() : Promise.reject('Error: Unable to make the API request.'))
-        .then(() => {
+        .then(function(response) {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return Promise.reject('Error: Unable to make the API request.');
+            }
+        })
+        .then(function(data) {
             spinner.style.display = 'none';
             buttonText.textContent = 'Retrieve GitHub Issues';
             retrieveButton.disabled = false;
+            
+            // Check if the response indicates an error
+            if (data && data.status === 'error') {
+                console.warn('GitHub API Error:', data.message);
+                // Show a user-friendly message
+                alert('GitHub Integration: ' + data.message);
+                return;
+            }
+            
+            // Check if the response indicates success
+            if (data && data.status === 'success') {
+                // Show a success message
+                alert('GitHub Integration: ' + data.message);
+            }
+            
+            // Refresh the data regardless of success/error
             retrieveData();
         })
-        .catch(error => {
+        .catch(function(error) {
             console.error(error);
             spinner.style.display = 'none';
             buttonText.textContent = 'Retrieve GitHub Issues';
@@ -122,22 +155,46 @@ require_once('head.php');
 
     function retrieveTotalIssuesCount() {
         fetch('api/getGHDash.php?action=total_count', { method: 'GET', headers: { 'Accept': 'application/json' } })
-        .then(response => response.ok ? response.json() : Promise.reject('Error: Unable to retrieve "Total Issues" count.'))
-        .then(response => document.getElementById('total-issues-badge').textContent = response.total_count)
+        .then(function(response) {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return Promise.reject('Error: Unable to retrieve "Total Issues" count.');
+            }
+        })
+        .then(function(response) {
+            document.getElementById('total-issues-badge').textContent = response.total_count;
+        })
         .catch(console.error);
 
         fetch('api/getGHDash.php?action=unassigned_count', { method: 'GET', headers: { 'Accept': 'application/json' } })
-        .then(response => response.ok ? response.json() : Promise.reject('Error: Unable to retrieve "Total Issues" count.'))
-        .then(response => document.getElementById('unassigned-issues-badge').textContent = response.total_count)
+        .then(function(response) {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return Promise.reject('Error: Unable to retrieve "Total Issues" count.');
+            }
+        })
+        .then(function(response) {
+            document.getElementById('unassigned-issues-badge').textContent = response.total_count;
+        })
         .catch(console.error);
     }
 
     function retrieveTop5ByAssignee() {
         fetch('api/getGHDash.php?action=countbyasignee&count=5', { method: 'GET', headers: { 'Accept': 'application/json' } })
-        .then(response => response.ok ? response.json() : Promise.reject('Error: Unable to retrieve data from "Top 5 by Assignee" API.'))
-        .then(updateAssigneeChart)
+        .then(function(response) {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return Promise.reject('Error: Unable to retrieve data from "Top 5 by Assignee" API.');
+            }
+        })
+        .then(function(data) {
+            updateAssigneeChart(data);
+        })
         .catch(console.error)
-        .finally(() => {
+        .finally(function() {
             document.getElementById('spinner').style.display = 'none';
             document.getElementById('retrieve').disabled = false;
         });
@@ -173,8 +230,13 @@ require_once('head.php');
 
     function retrieveLatestIssues() {
         fetch('api/getGHDash.php?action=latest_issues')
-        .then(response => response.json())
-        .then(updateLatestIssues)
+        .then(function(response) {
+            console.log('Latest Issues - Response OK, parsing JSON...');
+            return response.json();
+        })
+        .then(function(issues) {
+            updateLatestIssues(issues);
+        })
         .catch(console.error);
     }
 
@@ -227,8 +289,14 @@ require_once('head.php');
 
     function retrieveIssuesOverTime() {
         fetch('api/getGHDash.php?action=issues_over_time', { method: 'GET', headers: { 'Accept': 'application/json' } })
-        .then(response => response.ok ? response.json() : Promise.reject('Error: Unable to retrieve data for issues over time.'))
-        .then(data => {
+        .then(function(response) {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return Promise.reject('Error: Unable to retrieve data for issues over time.');
+            }
+        })
+        .then(function(data) {
             const ctx = document.getElementById('issues-over-time-chart').getContext('2d');
             const chartStatus = Chart.getChart("issues-over-time-chart");
             if (chartStatus) chartStatus.destroy();
@@ -257,8 +325,14 @@ require_once('head.php');
 
     function retrieveLastRetrieved() {
         fetch('api/getGHDash.php?action=last_retrieve', { method: 'GET', headers: { 'Accept': 'application/json' } })
-        .then(response => response.ok ? response.json() : Promise.reject('Error: Unable to retrieve "Last retrieved" information.'))
-        .then(response => {
+        .then(function(response) {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return Promise.reject('Error: Unable to retrieve "Last retrieved" information.');
+            }
+        })
+        .then(function(response) {
             if (response.end_time) {
                 const [year, month, day, hour, minute, second] = response.end_time.split(/[- :]/).map(Number);
                 const dateObject = new Date(year, month - 1, day, hour, minute, second);
@@ -266,15 +340,17 @@ require_once('head.php');
                 const indianDateTime = new Date(now.toLocaleString("en-US", { timeZone: 'Asia/Kolkata' }));
                 const diffMinutes = Math.round((indianDateTime - dateObject) / (1000 * 60));
 
-                document.getElementById('last-retrieved-badge').textContent = diffMinutes < 100 
-                    ? `${diffMinutes} Minute(s) ago` 
-                    : `${Math.round(diffMinutes / 60)} Hour(s) ago`;
+                if (diffMinutes < 100) {
+                    document.getElementById('last-retrieved-badge').textContent = diffMinutes + ' Minute(s) ago';
+                } else {
+                    document.getElementById('last-retrieved-badge').textContent = Math.round(diffMinutes / 60) + ' Hour(s) ago';
+                }
             } else {
                 document.getElementById('last-retrieved-badge').textContent = 'Unknown';
             }
         })
-        .catch(error => {
-            document.getElementById('last-retrieved').textContent = 'Last retrieved: N/A';
+        .catch(function(error) {
+            document.getElementById('last-retrieved-badge').textContent = 'N/A';
             console.error(error);
         });
     }

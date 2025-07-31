@@ -5,69 +5,66 @@ require_once('head.php');
 
 
 ?>
-<h4 class="my-4">Project Wise Issues - Paycorp</h4>
+<h4 class="my-4">People Wise Issues - Paycorp</h4>
 <div class="container mt-5">
     <div class="row">
         <!-- Project List (Left Pane) -->
-        <div class="col-md-2 shadow-sm bg-white rounded"">
-            <h4>Projects (<span id="project-count">0</span>)</h4>
-            <!-- Add a search input field -->
-            <input type="text" id="project-search" class="form-control mb-3" placeholder="Search projects">
+        <div class="col-md-2 shadow-sm">
+            <h2>Assignee (<span id="assignee-count">0</span>)</h2>
+            <!-- Add a search input field with Bootstrap 5 classes -->
+            <input type="text" id="assignee-search" class="form-control ustom-search-input  form-control-sm mb-3"
+                placeholder="Search Assignee">
 
-
-
-            <div id="project-list-container">
-                <ul id="project-list" class="list-group">
-                    <!-- Project list will be displayed here -->
+            <div id="assignee-list-container">
+                <ul id="assignee-list" class="list-group">
+                    <!-- assignee list will be displayed here -->
                 </ul>
             </div>
         </div>
 
         <!-- Project Details and Issues (Right Pane) -->
         <div class="col-md-10">
-            <div id="project-details">
-                <!-- Project details will be displayed here -->
+            <div id="assignee-details">
+                <!-- Assignee details will be displayed here -->
             </div>
             <div class="card">
                 <div class="card-body shadow-sm bg-white rounded">
-            <table id="project-issues-tbl" class="table table-striped table-hover shadow bg-white rounded"">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>Repo</th>
-                        <th>Assignee</th>
-                    </tr>
-                </thead>
-                <tbody id="project-issues">
-                    <!-- Project issues will be displayed here -->
-                </tbody>
-            </table>
+                    <table id="assignee-issues-tbl" class="table table-striped table-hover shadow">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Repo</th>
+                                <th>Project</th>
+                                <th>Assigned Date</th>
+                                <th>Aging</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
     </div>
 </div>
 
 <script>
-
-    document.addEventListener("DOMContentLoaded", function () {
+     document.addEventListener("DOMContentLoaded", function () {
         // Test if jQuery and DataTables are loaded
-        console.log('jQuery version:', $.fn.jquery);
-        console.log('DataTables available:', typeof $.fn.DataTable !== 'undefined');
+
         
-        fetchAndDisplayProjects();
-        document.getElementById('project-search').addEventListener('input', filterProjectList);
-    });
-    // Function to filter the project list based on user input and the Unassigned checkbox
-    function filterProjectList() {
+        fetchAndDisplayAssignees();
+        document.getElementById('assignee-search').addEventListener('input', filterAssigneeList);
+     });
+
+    // Function to filter the assignee list based on user input
+    // Function to filter the assignee list based on user input
+    // Function to filter the assignee list based on user input with wildcard search
+    function filterAssigneeList() {
         var input, filter, ul, li, a, i, txtValue;
-        input = document.getElementById('project-search');
+        input = document.getElementById('assignee-search');
         filter = input.value.toUpperCase();
-        ul = document.getElementById('project-list');
+        ul = document.getElementById('assignee-list');
         li = ul.getElementsByTagName('li');
-        //var unassignedCheckbox = document.getElementById('unassigned-checkbox');
-        //var showUnassigned = unassignedCheckbox.checked; // Get the checkbox state
 
         // Convert filter to a regular expression pattern with wildcards
         filter = filter.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"); // Escape special characters
@@ -85,77 +82,72 @@ require_once('head.php');
     }
 
 
+    // Add an event listener to the assignee search input
+   
 
-    // Add an event listener to the project search input
 
+    // Function to fetch assignee list and populate the left pane
+    function fetchAndDisplayAssignees() {
 
-    // Function to fetch project list and populate the left pane
-    function fetchAndDisplayProjects() {
-        console.log('Fetching project list...');
-        fetch('api/getProjects.php')
+        fetch('api/getGHDash.php?action=assignee')
             .then(response => {
-                console.log('Response status:', response.status);
+
                 if (!response.ok) {
                     throw new Error('Network response was not ok: ' + response.status);
                 }
                 return response.json();
             })
             .then(data => {
-                console.log('Project data received:', data);
-                var projectList = document.getElementById('project-list');
-                var projectCount = document.getElementById('project-count');
 
-                dataFiltered = data.filter(function (project) {
-                    return project.closed != 1;
+                var assigneeList = document.getElementById('assignee-list');
+                var assigneeCount = document.getElementById('assignee-count');
+
+                dataFiltered = data.filter(function (assignee) {
+                    return true;
                 });
-
-                projectCount.textContent = dataFiltered.length; // Update project count
-                dataFiltered.forEach(function (project) {
+                assigneeCount.textContent = dataFiltered.length; // Update assignee count
+                dataFiltered.forEach(function (assignee) {
                     var listItem = document.createElement('li');
                     listItem.className = 'list-group-item';
-                    listItem.textContent = project.title + ' (' + project.count_of_issues + ')';
+                    listItem.textContent = assignee.assignee + " (" + assignee.count_issue + ") ";
                     listItem.addEventListener('click', function () {
-                        console.log('Project clicked:', project);
+        
                         
                         // Remove selection from other items
-                        var allItems = projectList.children;
+                        var allItems = assigneeList.children;
                         for (var i = 0; i < allItems.length; i++) {
                             allItems[i].classList.remove('active');
                         }
                         // Add selection class to the clicked item
                         listItem.classList.add('active');
-                        // Display project details and issues for the selected project
-                        displayProjectDetails(project);
-                        fetchAndDisplayProjectIssues(project.gh_id);
+                        // Display assignee details and issues for the selected assignee
+                        displayAssigneeDetails(assignee);
+                        fetchAndDisplayAssigneeIssues(assignee);
                     });
-                    projectList.appendChild(listItem);
+                    assigneeList.appendChild(listItem);
                 });
             })
             .catch(error => {
-                console.error('Error fetching project list:', error);
-                document.getElementById('project-list').innerHTML = '<li class="list-group-item text-danger">Error loading projects</li>';
+                console.error('Error fetching assignee list:', error);
+                document.getElementById('assignee-list').innerHTML = '<li class="list-group-item text-danger">Error loading assignees</li>';
             });
     }
 
+    // Function to display assignee details in the right pane
+    function displayAssigneeDetails(assignee) {
+        var assigneeDetails = document.getElementById('assignee-details');
 
-    // Function to display project details in the right pane
-    function displayProjectDetails(project) {
-        var projectDetails = document.getElementById('project-details');
-
-        projectDetails.innerHTML = `
+        assigneeDetails.innerHTML = `
             <div class="alert alert-info">
-                <h4><a href="${project.url}" target="_blank">${project.title}</a></h4>
-                <p>Total Issues: ${project.count_of_issues}</p>
-                <p>Project ID: ${project.gh_id}</p>
+                <h4>${assignee.assignee}</h4>
+                <p>Total Issues: ${assignee.count_issue}</p>
             </div>
         `;
     }
 
-   
-
-
-    function fetchAndDisplayProjectIssues(projectId) {
-        console.log('Fetching issues for project ID:', projectId);
+    // Function to fetch and display issues for the selected assignee using DataTables
+    function fetchAndDisplayAssigneeIssues(assignee) {
+        
 
         // Check if DataTables is loaded
         if (typeof $.fn.DataTable === 'undefined') {
@@ -164,12 +156,12 @@ require_once('head.php');
             return;
         }
 
-        if ($.fn.DataTable.isDataTable('#project-issues-tbl')) {
-            $('#project-issues-tbl').DataTable().destroy();
+        if ($.fn.DataTable.isDataTable('#assignee-issues-tbl')) {
+            $('#assignee-issues-tbl').DataTable().destroy();
         }
         
         // Initialize the DataTable with AJAX
-        var table = $('#project-issues-tbl').DataTable({
+        var table = $('#assignee-issues-tbl').DataTable({
             processing: true, // Show loading indicator
             serverSide: false, // Client-side processing
             drawCallback: function (settings) {
@@ -186,11 +178,11 @@ require_once('head.php');
                 url: 'api/getGHDash.php',
                 type: "GET",
                 data: function (d) {
-                    d.action = 'by_project';
-                    d.projectId = projectId;
+                    d.action = 'by_assignee';
+                    d.assignee = assignee.assignee;
                 },
                 dataSrc: function(json) {
-                    console.log('API Response for project issues:', json);
+    
                     return json.data || [];
                 }
             },
@@ -199,7 +191,7 @@ require_once('head.php');
                 {
                     extend: 'excel',
                     footer: true,
-                    title: 'Issues By Project',
+                    title: 'Issues By Assignees',
                     text: 'Export to Excel',
                     titleAttr: 'Export Data to Excel',
                     exportOptions: {
@@ -209,7 +201,7 @@ require_once('head.php');
                             page: 'all',
                             search: 'applied'
                         },
-                        columns: [0, 1, 2, 3]
+                        columns: [0, 1, 2, 3, 4, 5]
                     }
                 }
             ],
@@ -225,20 +217,24 @@ require_once('head.php');
                     }
                 },
                 { "data": "repo" },
-                { "data": "assignee" }
+                { "data": "gh_project_title" },
+                { "data": "assigned_date" },
+                { "data": "aging" }
             ],
-            order: [[1, "asc"]], // Initial sorting column and direction
+            order: [[4, "asc"]], // Initial sorting column and direction
             pageLength: 25,
             lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
             language: {
                 processing: "Loading issues...",
-                emptyTable: "No issues found for this project",
+                emptyTable: "No issues found for this assignee",
                 zeroRecords: "No matching issues found"
             }
         });
     }
-    // Call the function to fetch and display projects
-    
+
+
+
+
 </script>
 
 
@@ -249,3 +245,4 @@ require_once('bodyend.php');
 
 
 ?>
+

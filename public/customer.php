@@ -207,7 +207,7 @@ function fetchAndDisplayCustomers() {
 
 // Function to display customer details in the right pane
 function displayCustomerDetails(customer) {
-    document.getElementById('customer-details').innerHTML = `<h4>${customer.customer}</h4>`;
+                    document.getElementById('customer-details').innerHTML = '<h4>' + customer.customer + '</h4>';
 }
 
 // Function to fetch and display issues for the selected customer using DataTables
@@ -245,7 +245,7 @@ function fetchAndDisplayCustomerIssues(customer) {
                 data: 'issue_text',
                 render: function (data, type, row) {
                     if (type === 'display') {
-                        return `<a href="${row.gh_id_url}" target="_blank">${data}</a>`;
+                        return '<a href="' + row.gh_id_url + '" target="_blank">' + data + '</a>';
                     }
                     return data;
                 }

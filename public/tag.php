@@ -253,14 +253,14 @@ require_once('head.php');
                         className: 'dt-center',
                         render: function(data, type, row) {
                             const iconClass = row.pin_status === "UNPIN" ? '' : ' fa-thumbtack-pinned';
-                            return `<i class="fa fa-thumb-tack pin-issue${iconClass}" data-node-id="${row.gh_node_id}" style="cursor:pointer" aria-label="Pin Issue"></i>`;
+                            return '<i class="fa fa-thumb-tack pin-issue' + iconClass + '" data-node-id="' + row.gh_node_id + '" style="cursor:pointer" aria-label="Pin Issue"></i>';
                         }
                     },
                     { data: "gh_id" },
                     {
                         data: 'issue_text',
                         render: function(data, type, row) {
-                            return type === 'display' ? `<a href="${row.gh_id_url}" target="_blank">${data}</a>` : data;
+                            return type === 'display' ? '<a href="' + row.gh_id_url + '" target="_blank">' + data + '</a>' : data;
                         }
                     },
                     { data: "assignee" },
@@ -277,7 +277,7 @@ require_once('head.php');
                                 const tags = data.split(', ').map(tag => {
                                     const label = labels.find(l => l.name === tag.trim());
                                     const color = label ? label.color : 'gray';
-                                    return `<span class="badge" style="background-color: #${color}">${tag.trim()}</span>`;
+                                    return '<span class="badge" style="background-color: #' + color + '">' + tag.trim() + '</span>';
                                 }).join(' ');
                                 return tags;
                             }

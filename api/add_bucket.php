@@ -1,12 +1,16 @@
 <?php
-require_once('../dbconn.php');
+use App\Utils\Database;
+use App\Utils\Logger;
+
+require_once(__DIR__ . "/../vendor/autoload.php");
+require_once(__DIR__ . "/../config/database.php");
 
 try {
-    $pdo = getPDOConnection();
+    $pdo = Database::getPDOConnection();
 
     $bucketName = $_POST['name'];
 
-    write_log("POST NEW BUCKET " . $bucketName);
+    Logger::writeLog("POST NEW BUCKET " . $bucketName);
 
     // Insert the new bucket into the database
     $query = "INSERT INTO gh_buckets (name) VALUES (:name)";
@@ -20,11 +24,11 @@ try {
         $response['name'] = $bucketName;
     }
 
-    write_log(json_encode($response));
+    Logger::writeLog(json_encode($response));
     echo json_encode($response);
 
 } catch (Exception $e) {
-    write_log("Error: " . $e->getMessage());
+    Logger::writeLog("Error: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
 ?>

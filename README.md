@@ -36,10 +36,11 @@ A PHP-based web application for managing and tracking GitHub issues with advance
 git clone <repository-url>
 cd github-smart
 
-# Copy environment file
-cp docker.env .env
+# Setup environment files (automated)
+./setup-env.sh
 
-# Edit .env with your GitHub token
+# Edit environment files with your settings
+nano docker.env
 nano .env
 
 # Start the application
@@ -54,14 +55,26 @@ docker-compose up --build -d
 # Access the application
 # Web: http://localhost:8080
 # MySQL: localhost:3306
+
+# Note: Document root is now /var/www/html/public/
 ```
 
 #### Docker Environment Configuration
-Edit `docker.env` or `.env`:
+Copy the example file and configure your settings:
+```bash
+# Copy the example file
+cp docker.env.example docker.env
+
+# Edit with your actual values
+nano docker.env
+```
+
+Edit `docker.env` with your configuration:
 ```env
-# GitHub Configuration
-GITHUB_TOKEN=your_github_token_here
-GITHUB_ORG=Syneca
+# Application Configuration
+APP_NAME=CRUX
+APP_ENV=development
+APP_DEBUG=true
 
 # Database Configuration
 DB_HOST=mysql
@@ -70,10 +83,18 @@ DB_NAME=project_management
 DB_USER=root
 DB_PASSWORD=Evolvus*123
 
-# Application Settings
-APP_ENV=development
-APP_DEBUG=true
+# GitHub Configuration
+# Replace with your actual GitHub Personal Access Token
+GITHUB_TOKEN=your_github_token_here
+GITHUB_ORG=Syneca
+
+# Logging Configuration
 LOG_LEVEL=INFO
+LOG_FILE=app.log
+
+# Docker-specific Settings
+MYSQL_ROOT_PASSWORD=Evolvus*123
+MYSQL_DATABASE=project_management
 ```
 
 ### 🖥️ Option 2: Traditional Setup
@@ -91,7 +112,11 @@ composer install
 
 #### 3. Environment Setup
 ```bash
-cp .env.example .env
+# Setup environment files (automated)
+./setup-env.sh
+
+# Or manually:
+# cp .env.example .env
 ```
 
 Edit `.env` with your configuration:
@@ -120,10 +145,41 @@ mysql -u root -p < create_tables.sql
 
 #### 5. Start Development Server
 ```bash
-php -S localhost:8000
+# Set document root to public directory
+php -S localhost:8000 -t public/
 ```
 
 ## 🔧 Configuration
+
+### Environment Files
+
+The application uses different environment files for different setups:
+
+#### For Traditional Setup
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit with your settings
+nano .env
+```
+
+#### For Docker Setup
+```bash
+# Copy the example files
+cp docker.env.example docker.env
+cp .env.example .env
+
+# Edit with your settings
+nano docker.env
+nano .env
+```
+
+#### Environment File Differences
+- **`.env`**: Used for traditional PHP setup
+- **`docker.env`**: Used for Docker setup (contains Docker-specific settings)
+- **`.env.example`**: Template for traditional setup
+- **`docker.env.example`**: Template for Docker setup
 
 ### GitHub Token Setup
 1. Go to GitHub Settings → Developer settings → Personal access tokens
@@ -144,25 +200,80 @@ The application uses MySQL with the following main tables:
 
 ```
 github-smart/
-├── api/                    # API endpoints
-│   ├── getGHIssues.php    # GitHub issue retrieval
-│   ├── getGHDash.php      # Dashboard data
+├── public/                    # Web root (Apache/Nginx document root)
+│   ├── index.php             # Main entry point
+│   ├── people.php            # People/assignee management
+│   ├── projects.php          # Project management
+│   ├── customer.php          # Customer management
+│   ├── issues.php            # Issue listing
+│   ├── tag.php              # Tag management
+│   ├── bucket.php            # Bucket management
+│   ├── pin.php              # Pin management
+│   ├── head.php             # HTML head template
+│   ├── bodyend.php          # HTML body end template
+│   ├── bootstrap.php         # Application bootstrap
+│   ├── .htaccess            # Apache configuration
+│   └── css/                 # Stylesheets
+│       └── bootstrap.min.css
+├── src/                      # Application source code
+│   ├── Config/              # Configuration classes
+│   │   └── AppConfig.php
+│   ├── Database/            # Database management
+│   │   └── DatabaseManager.php
+│   ├── Services/            # Business logic services
+│   │   └── GitHubService.php
+│   ├── Security/            # Security middleware
+│   │   └── SecurityMiddleware.php
+│   ├── Controllers/         # MVC controllers (future)
+│   ├── Models/              # Data models (future)
+│   └── Views/               # View templates (future)
+├── api/                     # API endpoints
+│   ├── getGHIssues.php      # GitHub issue retrieval
+│   ├── getGHDash.php        # Dashboard data
 │   ├── utilities_project.php # Project utilities
-│   └── ...
-├── src/                    # Application source code
-│   ├── Config/            # Configuration classes
-│   ├── Database/          # Database management
-│   ├── Services/          # Business logic services
-│   ├── Security/          # Security middleware
-│   └── Models/            # Data models
-├── css/                   # Stylesheets
-├── vendor/                # Composer dependencies
-├── docker-compose.yml     # Docker configuration
-├── docker.env             # Docker environment
-├── start-docker.sh        # Docker startup script
-├── .env                   # Environment configuration
-├── composer.json          # Dependencies
-└── README.md             # This file
+│   ├── getProjects.php      # Project listing
+│   ├── get_buckets.php      # Bucket operations
+│   ├── get_tags.php         # Tag operations
+│   ├── pin_issue.php        # Pin operations
+│   ├── addCustomer.php      # Customer operations
+│   ├── removeCustomer.php   # Customer operations
+│   ├── add_bucket.php       # Bucket operations
+│   ├── delete_bucket.php    # Bucket operations
+│   ├── update_bucket_name.php # Bucket operations
+│   └── update_issue_bucket.php # Bucket operations
+├── config/                  # Configuration files
+│   ├── app.php             # Application configuration
+│   └── database.php        # Database configuration
+├── tests/                   # Unit tests
+│   ├── Unit/               # Unit tests
+│   ├── Integration/        # Integration tests
+│   └── test_*.php          # Test files
+├── docs/                    # Documentation
+│   ├── PROJECT_STRUCTURE.md # Project structure
+│   ├── API.md              # API documentation
+│   ├── DEPLOYMENT.md       # Deployment guide
+│   └── SECURITY.md         # Security documentation
+├── scripts/                 # Utility scripts
+│   ├── setup_database.php  # Database setup
+│   ├── setup_cli.php       # CLI setup
+│   └── monitor_logs.php    # Log monitoring
+├── logs/                    # Log files
+│   └── app.log             # Application logs
+├── uploads/                 # File uploads
+├── vendor/                  # Composer dependencies
+├── docker-compose.yml       # Docker configuration
+├── docker.env              # Docker environment (gitignored)
+├── docker.env.example      # Docker environment template
+├── start-docker.sh         # Docker startup script
+├── setup-env.sh            # Environment setup script
+├── composer.json           # Dependencies
+├── composer.lock           # Dependency lock
+├── .env                    # Environment configuration
+├── .env.example            # Environment template
+├── .gitignore              # Git ignore rules
+├── create_tables.sql       # Database schema
+├── README.md               # Main documentation
+└── LICENSE                 # License file
 ```
 
 ## 🔒 Security Features

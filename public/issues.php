@@ -41,7 +41,7 @@ require_once('head.php');
         fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
-                console.log(data);
+        
                 populateTable(data.data);
             })
             .catch(error => console.error('Error fetching issues:', error));
