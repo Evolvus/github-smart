@@ -9,35 +9,20 @@ require_once(__DIR__ . '/../../config/app.php');
 function getProjectIssues($org,$token){
     GLOBAL $APP_NAME;
     $api_url = 'https://api.github.com/graphql';
-    $query = <<<QUERY
+    
+    $project_issue = array();
+    
+    // First, get all projects
+    $projectsQuery = <<<QUERY
     {
         organization(login: "{$org}") {
-            projectsV2(first: 10) {
+            projectsV2(first: 80) {
                 nodes {
                     id 
                     number
                     title
                     url
                     closed
-                    items(first: 50) { 
-                        nodes{
-                            content { 
-                                ... on Issue { 
-                                    id
-                                    title 
-                                    closed
-                                    updatedAt
-                                    labels(first: 20) {
-                                        nodes {
-                                            name
-                                            color
-                                        }
-                                    }
-                                } 
-                            }
-                        }
-                    }
-                    
                 }
             }
         }
@@ -48,39 +33,103 @@ function getProjectIssues($org,$token){
         // Initialize Guzzle client
         $client = new \GuzzleHttp\Client();
     
-        // Make a POST request to the GitHub GraphQL API
+        // Make a POST request to get all projects
         $response = $client->post($api_url, [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token,
                 'User-Agent' => $APP_NAME,
             ],
-            'json' => ['query' => $query],
+            'json' => ['query' => $projectsQuery],
         ]);
 
         // Check the HTTP status code
         if ($response->getStatusCode() === 200) {
-
             // Parse the JSON response
             $data = json_decode($response->getBody(), true);
+            
+            if (!isset($data['data']['organization']['projectsV2']['nodes'])) {
+                return $project_issue;
+            }
 
-            $project_issue = array();
-
+            // For each project, fetch all items using cursor-based pagination
             foreach($data['data']['organization']['projectsV2']['nodes'] as $proj){
                 if(empty($proj) || $proj['closed']){
                     continue;
                 }
                 
-                foreach($proj['items']['nodes'] as $issues){
-                    if(empty($issues) || empty($issues['content']) || $issues['content']['closed']){
-                        continue;
+                $projectId = $proj['id'];
+                $hasNextPage = true;
+                $endCursor = null;
+                
+                while ($hasNextPage) {
+                    $afterClause = $endCursor ? '"' . $endCursor . '"' : 'null';
+                    $itemsQuery = <<<QUERY
+                    {
+                        node(id: "{$projectId}") {
+                            ... on ProjectV2 {
+                                items(first: 100, after: {$afterClause}) {
+                                    pageInfo {
+                                        hasNextPage
+                                        endCursor
+                                    }
+                                    nodes {
+                                        content { 
+                                            ... on Issue { 
+                                                id
+                                                title 
+                                                closed
+                                                updatedAt
+                                                labels(first: 10) {
+                                                    nodes {
+                                                        name
+                                                        color
+                                                    }
+                                                }
+                                            } 
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                    QUERY;
                     
-                    $id = $issues['content']['id'];
-                    $project['id'] = $proj['id'];
-                    $project['title'] = $proj['title'];
-                    $project['closed'] = $proj['closed'];
-                    $project['url'] = $proj['url'];
-                    $project_issue[$id] = $project;
+                    $response = $client->post($api_url, [
+                        'headers' => [
+                            'Authorization' => 'Bearer ' . $token,
+                            'User-Agent' => $APP_NAME,
+                        ],
+                        'json' => ['query' => $itemsQuery],
+                    ]);
+                    
+                    if ($response->getStatusCode() === 200) {
+                        $itemsData = json_decode($response->getBody(), true);
+                        
+                        if (isset($itemsData['data']['node']['items'])) {
+                            $items = $itemsData['data']['node']['items'];
+                            $pageInfo = $items['pageInfo'];
+                            
+                            foreach($items['nodes'] as $issues){
+                                if(empty($issues) || empty($issues['content']) || $issues['content']['closed']){
+                                    continue;
+                                }
+                                
+                                $id = $issues['content']['id'];
+                                $project['id'] = $proj['id'];
+                                $project['title'] = $proj['title'];
+                                $project['closed'] = $proj['closed'];
+                                $project['url'] = $proj['url'];
+                                $project_issue[$id] = $project;
+                            }
+                            
+                            $hasNextPage = $pageInfo['hasNextPage'];
+                            $endCursor = $pageInfo['endCursor'];
+                        } else {
+                            $hasNextPage = false;
+                        }
+                    } else {
+                        $hasNextPage = false;
+                    }
                 }
             }
 

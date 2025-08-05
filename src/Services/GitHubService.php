@@ -80,6 +80,8 @@ class GitHubService
     {
         try {
             $org = $this->config->get('github.org');
+            
+            // First, get all projects
             $response = $this->client->post('graphql', [
                 'json' => [
                     'query' => $this->getProjectsQuery($org)
@@ -95,7 +97,66 @@ class GitHubService
                 return [];
             }
 
-            return $this->parseProjectsResponse($data);
+            if (!isset($data['data']['organization']['projectsV2']['nodes'])) {
+                return [];
+            }
+
+            $projects = [];
+            
+            // For each project, fetch all items using cursor-based pagination
+            foreach ($data['data']['organization']['projectsV2']['nodes'] as $project) {
+                if (empty($project) || $project['closed']) {
+                    continue;
+                }
+                
+                $projectId = $project['id'];
+                $hasNextPage = true;
+                $endCursor = null;
+                
+                while ($hasNextPage) {
+                    $itemsResponse = $this->client->post('graphql', [
+                        'json' => [
+                            'query' => $this->getProjectItemsQuery($projectId, $endCursor)
+                        ]
+                    ]);
+                    
+                    $itemsData = json_decode($itemsResponse->getBody()->getContents(), true);
+                    
+                    if (isset($itemsData['errors'])) {
+                        $this->logger->warning("GraphQL API returned errors for project items", [
+                            'errors' => $itemsData['errors'],
+                            'project_id' => $projectId
+                        ]);
+                        break;
+                    }
+                    
+                    if (isset($itemsData['data']['node']['items'])) {
+                        $items = $itemsData['data']['node']['items'];
+                        $pageInfo = $items['pageInfo'];
+                        
+                        foreach ($items['nodes'] as $item) {
+                            if (empty($item) || empty($item['content']) || $item['content']['closed']) {
+                                continue;
+                            }
+                            
+                            $issueId = $item['content']['id'];
+                            $projects[$issueId] = [
+                                'id' => $project['id'],
+                                'title' => $project['title'],
+                                'closed' => $project['closed'],
+                                'url' => $project['url']
+                            ];
+                        }
+                        
+                        $hasNextPage = $pageInfo['hasNextPage'];
+                        $endCursor = $pageInfo['endCursor'];
+                    } else {
+                        $hasNextPage = false;
+                    }
+                }
+            }
+
+            return $projects;
         } catch (RequestException $e) {
             $this->logger->warning("GraphQL API failed, falling back to REST", [
                 'error' => $e->getMessage()
@@ -116,22 +177,39 @@ class GitHubService
                         title
                         url
                         closed
-                        items(first: 20) { 
-                            nodes{
-                                content { 
-                                    ... on Issue { 
-                                        id
-                                        title 
-                                        closed
-                                        updatedAt
-                                        labels(first: 10) {
-                                            nodes {
-                                                name
-                                                color
-                                            }
+                    }
+                }
+            }
+        }
+        QUERY;
+    }
+
+    private function getProjectItemsQuery(string $projectId, ?string $cursor = null): string
+    {
+        $afterClause = $cursor ? '"' . $cursor . '"' : 'null';
+        return <<<QUERY
+        {
+            node(id: "{$projectId}") {
+                ... on ProjectV2 {
+                    items(first: 100, after: {$afterClause}) {
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                        nodes {
+                            content { 
+                                ... on Issue { 
+                                    id
+                                    title 
+                                    closed
+                                    updatedAt
+                                    labels(first: 10) {
+                                        nodes {
+                                            name
+                                            color
                                         }
-                                    } 
-                                }
+                                    }
+                                } 
                             }
                         }
                     }
@@ -141,36 +219,7 @@ class GitHubService
         QUERY;
     }
 
-    private function parseProjectsResponse(array $data): array
-    {
-        $projects = [];
-        
-        if (!isset($data['data']['organization']['projectsV2']['nodes'])) {
-            return $projects;
-        }
 
-        foreach ($data['data']['organization']['projectsV2']['nodes'] as $project) {
-            if (empty($project) || $project['closed']) {
-                continue;
-            }
-
-            foreach ($project['items']['nodes'] as $item) {
-                if (empty($item) || empty($item['content']) || $item['content']['closed']) {
-                    continue;
-                }
-
-                $issueId = $item['content']['id'];
-                $projects[$issueId] = [
-                    'id' => $project['id'],
-                    'title' => $project['title'],
-                    'closed' => $project['closed'],
-                    'url' => $project['url']
-                ];
-            }
-        }
-
-        return $projects;
-    }
 }
 
 class GitHubException extends \Exception

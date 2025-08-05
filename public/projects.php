@@ -37,6 +37,7 @@ require_once('head.php');
                         <th>Title</th>
                         <th>Repo</th>
                         <th>Assignee</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="project-issues">
@@ -112,10 +113,16 @@ require_once('head.php');
                 dataFiltered.forEach(function (project) {
                     var listItem = document.createElement('li');
                     listItem.className = 'list-group-item';
-                    listItem.textContent = project.title + ' (' + project.count_of_issues + ')';
+                    
+                    // Special styling for UNASSIGNED project
+                    if (project.gh_id === 'UNASSIGNED') {
+                        listItem.className = 'list-group-item list-group-item-warning';
+                        listItem.innerHTML = '<strong>' + project.title + '</strong> (' + project.count_of_issues + ')';
+                    } else {
+                        listItem.textContent = project.title + ' (' + project.count_of_issues + ')';
+                    }
+                    
                     listItem.addEventListener('click', function () {
-        
-                        
                         // Remove selection from other items
                         var allItems = projectList.children;
                         for (var i = 0; i < allItems.length; i++) {
@@ -141,11 +148,18 @@ require_once('head.php');
     function displayProjectDetails(project) {
         var projectDetails = document.getElementById('project-details');
 
+        // Special styling for UNASSIGNED project
+        var alertClass = project.gh_id === 'UNASSIGNED' ? 'alert-warning' : 'alert-info';
+        var title = project.gh_id === 'UNASSIGNED' ? 
+            '<strong>UNASSIGNED ISSUES</strong>' : 
+            `<a href="${project.url}" target="_blank">${project.title}</a>`;
+
         projectDetails.innerHTML = `
-            <div class="alert alert-info">
-                <h4><a href="${project.url}" target="_blank">${project.title}</a></h4>
+            <div class="alert ${alertClass}">
+                <h4>${title}</h4>
                 <p>Total Issues: ${project.count_of_issues}</p>
                 <p>Project ID: ${project.gh_id}</p>
+                ${project.gh_id === 'UNASSIGNED' ? '<p><em>These issues exist in repositories but are not assigned to any project board.</em></p>' : ''}
             </div>
         `;
     }
@@ -208,7 +222,7 @@ require_once('head.php');
                             page: 'all',
                             search: 'applied'
                         },
-                        columns: [0, 1, 2, 3]
+                        columns: [0, 1, 2, 3, 4]
                     }
                 }
             ],
@@ -224,7 +238,18 @@ require_once('head.php');
                     }
                 },
                 { "data": "repo" },
-                { "data": "assignee" }
+                { "data": "assignee" },
+                {
+                    data: 'gh_state',
+                    render: function (data, type, row) {
+                        if (type === 'display') {
+                            var statusClass = data === 'open' ? 'badge bg-success' : 'badge bg-secondary';
+                            var statusText = data === 'open' ? 'Open' : 'Closed';
+                            return '<span class="' + statusClass + '">' + statusText + '</span>';
+                        }
+                        return data;
+                    }
+                }
             ],
             order: [[1, "asc"]], // Initial sorting column and direction
             pageLength: 25,

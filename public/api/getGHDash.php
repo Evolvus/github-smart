@@ -137,7 +137,7 @@ function handleIssuesByProject($pdo) {
     
     if ($project) {
         if ($project === "UNASSIGNED") {
-            $query .= " AND gh_project IS NULL";
+            $query .= " AND (gh_project IS NULL OR gh_project = '')";
         } else {
             $query .= " AND gh_project = :project";
         }

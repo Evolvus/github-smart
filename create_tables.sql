@@ -58,6 +58,21 @@ CREATE TABLE IF NOT EXISTS gh_issue_tags (
     FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
 );
 
+-- Create gh_pinned_issues table
+CREATE TABLE IF NOT EXISTS gh_pinned_issues (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gh_node_id VARCHAR(255) NOT NULL,
+    bucket INT DEFAULT 1,
+    is_deleted ENUM('YES', 'NO') DEFAULT 'NO',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_gh_node_id (gh_node_id),
+    INDEX idx_bucket (bucket),
+    FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
+);
+
 -- Create additional tables that might be referenced in the application
 CREATE TABLE IF NOT EXISTS expense_perm_matrix (
     id INT AUTO_INCREMENT PRIMARY KEY,
