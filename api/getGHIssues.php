@@ -134,7 +134,7 @@ function fetchAllIssuesWithProjects($githubOrg, $githubToken, $appName) {
     write_log("Starting to fetch issues from GitHub API...");
     
     while (true) {
-        $apiUrl = "https://api.github.com/orgs/{$githubOrg}/issues?filter=all&state=all&per_page={$perPage}&page={$page}";
+        $apiUrl = "https://api.github.com/orgs/{$githubOrg}/issues?filter=all&state=open&per_page={$perPage}&page={$page}";
         
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_URL, $apiUrl);

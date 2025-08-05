@@ -245,7 +245,7 @@ try {
     }
 
     while (true) {
-        $api_url = "https://api.github.com/orgs/$GITHUB_ORG/issues?filter=all&state=all&per_page=99&page=$page";
+        $api_url = "https://api.github.com/orgs/$GITHUB_ORG/issues?filter=all&state=open&per_page=99&page=$page";
 
         // Fetch issues from GitHub API
         $curl = curl_init();

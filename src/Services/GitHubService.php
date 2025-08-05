@@ -53,7 +53,7 @@ class GitHubService
             $response = $this->client->get("orgs/{$org}/issues", [
                 'query' => [
                     'filter' => 'all',
-                    'state' => 'all',
+                    'state' => 'open',
                     'per_page' => $perPage,
                     'page' => $page
                 ]
