@@ -473,6 +473,17 @@ For support and questions:
 - Check MySQL service is running
 - Review database permissions
 
+#### Dependency Issues
+- If you encounter "Failed opening required" errors with vendor files:
+  ```bash
+  # Run the dependency fix script
+  ./scripts/fix-dependencies.sh
+  
+  # Or manually fix in Docker container
+  docker-compose exec app composer install
+  docker-compose exec app composer dump-autoload --optimize
+  ```
+
 ## 🔄 Changelog
 
 ### v1.1.0
