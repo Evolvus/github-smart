@@ -81,7 +81,7 @@ DB_HOST=mysql
 DB_PORT=3306
 DB_NAME=project_management
 DB_USER=root
-DB_PASSWORD=Evolvus*123
+DB_PASSWORD=your_password
 
 # GitHub Configuration
 # Replace with your actual GitHub Personal Access Token
@@ -93,7 +93,7 @@ LOG_LEVEL=INFO
 LOG_FILE=app.log
 
 # Docker-specific Settings
-MYSQL_ROOT_PASSWORD=Evolvus*123
+MYSQL_ROOT_PASSWORD=your_password
 MYSQL_DATABASE=project_management
 ```
 
