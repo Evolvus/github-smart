@@ -31,13 +31,17 @@ COPY composer.json composer.lock ./
 
 # Fix Git ownership issue and install dependencies
 RUN git config --global --add safe.directory /var/www/html \
-    && composer install --no-dev --no-interaction
+    && composer install --no-dev --no-interaction --optimize-autoloader
 
 # Copy application files
 COPY . .
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html
+
+# Verify vendor directory exists and is accessible
+RUN ls -la /var/www/html/vendor && \
+    php -r "require_once '/var/www/html/vendor/autoload.php'; echo 'Autoloader working correctly';"
 
 # Configure Apache document root
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public

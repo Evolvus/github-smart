@@ -5,6 +5,7 @@ services:
       - "8081:80"
     volumes:
       - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
     working_dir: /var/www/html
     depends_on:
       - mysql
@@ -25,4 +26,5 @@ services:
       - ./create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
 
 volumes:
-  mysql_data: 
+  mysql_data:
+  vendor_data: 

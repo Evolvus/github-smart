@@ -43,8 +43,8 @@ cd github-smart
 nano docker.env
 nano .env
 
-# Start the application
-./start-docker.sh
+# Start the application with the new setup script
+./scripts/docker-setup.sh full-setup
 ```
 
 #### Manual Docker Setup
@@ -53,10 +53,24 @@ nano .env
 docker-compose up --build -d
 
 # Access the application
-# Web: http://localhost:8080
+# Web: http://localhost:8081
 # MySQL: localhost:3306
 
 # Note: Document root is now /var/www/html/public/
+```
+
+#### Troubleshooting Docker Issues
+If you encounter vendor directory or autoloader issues:
+
+```bash
+# Use the troubleshooting script
+./scripts/docker-setup.sh full-setup
+
+# Or run individual commands:
+./scripts/docker-setup.sh cleanup    # Clean up Docker resources
+./scripts/docker-setup.sh rebuild    # Rebuild containers
+./scripts/docker-setup.sh verify     # Verify vendor directory
+./scripts/docker-setup.sh status     # Check container status
 ```
 
 #### Docker Environment Configuration
