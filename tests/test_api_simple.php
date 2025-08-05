@@ -19,7 +19,7 @@ $APP_NAME = 'CRUX';
 echo "Testing basic API call...\n";
 
 // Test the exact API call that the application uses
-$api_url = "https://api.github.com/orgs/$GITHUB_ORG/issues?filter=all&state=all&per_page=5&page=1";
+$api_url = "https://api.github.com/orgs/$GITHUB_ORG/issues?filter=all&state=open&per_page=5&page=1";
 
 echo "URL: $api_url\n";
 

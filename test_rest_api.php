@@ -1,7 +1,7 @@
 <?php
 require_once(__DIR__ . '/config/app.php');
 
-$apiUrl = "https://api.github.com/orgs/{$GITHUB_ORG}/issues?filter=all&state=all&per_page=10&page=1";
+$apiUrl = "https://api.github.com/orgs/{$GITHUB_ORG}/issues?filter=all&state=open&per_page=10&page=1";
 
 $curl = curl_init();
 curl_setopt($curl, CURLOPT_URL, $apiUrl);

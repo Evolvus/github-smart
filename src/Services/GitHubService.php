@@ -5,12 +5,13 @@ namespace App\Services;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use App\Config\AppConfig;
-use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
 
 class GitHubService
 {
     private Client $client;
+    private GitHubGraphQLClient $graphql;
     private AppConfig $config;
     private Logger $logger;
 
@@ -18,6 +19,7 @@ class GitHubService
     {
         $this->config = AppConfig::getInstance();
         $this->setupClient();
+        $this->graphql = new GitHubGraphQLClient();
         $this->setupLogger();
     }
 
@@ -51,7 +53,7 @@ class GitHubService
             $response = $this->client->get("orgs/{$org}/issues", [
                 'query' => [
                     'filter' => 'all',
-                    'state' => 'all',
+                    'state' => 'open',
                     'per_page' => $perPage,
                     'page' => $page
                 ]
@@ -82,29 +84,16 @@ class GitHubService
             $org = $this->config->get('github.org');
             
             // First, get all projects
-            $response = $this->client->post('graphql', [
-                'json' => [
-                    'query' => $this->getProjectsQuery($org)
-                ]
-            ]);
+            $data = $this->graphql->execute($this->getProjectsQuery($org));
 
-            $data = json_decode($response->getBody()->getContents(), true);
-            
-            if (isset($data['errors'])) {
-                $this->logger->warning("GraphQL API returned errors", [
-                    'errors' => $data['errors']
-                ]);
-                return [];
-            }
-
-            if (!isset($data['data']['organization']['projectsV2']['nodes'])) {
+            if (!isset($data['organization']['projectsV2']['nodes'])) {
                 return [];
             }
 
             $projects = [];
             
             // For each project, fetch all items using cursor-based pagination
-            foreach ($data['data']['organization']['projectsV2']['nodes'] as $project) {
+            foreach ($data['organization']['projectsV2']['nodes'] as $project) {
                 if (empty($project) || $project['closed']) {
                     continue;
                 }
@@ -114,24 +103,23 @@ class GitHubService
                 $endCursor = null;
                 
                 while ($hasNextPage) {
-                    $itemsResponse = $this->client->post('graphql', [
-                        'json' => [
-                            'query' => $this->getProjectItemsQuery($projectId, $endCursor)
-                        ]
-                    ]);
-                    
-                    $itemsData = json_decode($itemsResponse->getBody()->getContents(), true);
-                    
-                    if (isset($itemsData['errors'])) {
-                        $this->logger->warning("GraphQL API returned errors for project items", [
-                            'errors' => $itemsData['errors'],
-                            'project_id' => $projectId
-                        ]);
+                    try {
+                        $itemsData = $this->graphql->execute(
+                            $this->getProjectItemsQuery($projectId, $endCursor)
+                        );
+                    } catch (GitHubGraphQLException $e) {
+                        $this->logger->warning(
+                            'GraphQL API returned errors for project items',
+                            [
+                                'errors' => $e->getErrors(),
+                                'project_id' => $projectId,
+                            ]
+                        );
                         break;
                     }
-                    
-                    if (isset($itemsData['data']['node']['items'])) {
-                        $items = $itemsData['data']['node']['items'];
+
+                    if (isset($itemsData['node']['items'])) {
+                        $items = $itemsData['node']['items'];
                         $pageInfo = $items['pageInfo'];
                         
                         foreach ($items['nodes'] as $item) {
@@ -157,9 +145,10 @@ class GitHubService
             }
 
             return $projects;
-        } catch (RequestException $e) {
-            $this->logger->warning("GraphQL API failed, falling back to REST", [
-                'error' => $e->getMessage()
+        } catch (GitHubGraphQLException $e) {
+            $this->logger->warning('GraphQL API failed', [
+                'error' => $e->getMessage(),
+                'errors' => $e->getErrors(),
             ]);
             return [];
         }

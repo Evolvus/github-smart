@@ -3,7 +3,7 @@
         'name' => 'syneca/github-smart',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '64a8a4c8cb8ed66893eec2f909abe13687efb4a9',
+        'reference' => '3b5e6721e4b903390f89369cac8c74912e51d3c3',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -406,7 +406,7 @@
         'syneca/github-smart' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '64a8a4c8cb8ed66893eec2f909abe13687efb4a9',
+            'reference' => '3b5e6721e4b903390f89369cac8c74912e51d3c3',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
