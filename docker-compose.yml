@@ -1,30 +1,44 @@
+version: '3.8'
+
 services:
   app:
     build: .
     ports:
       - "8081:80"
-    volumes:
-      - .:/var/www/html
-      - vendor_data:/var/www/html/vendor
-    working_dir: /var/www/html
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html/public
+      - APP_ENV=production
+      - APP_DEBUG=false
     env_file:
       - docker.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: Evolvus*123
-      MYSQL_DATABASE: project_management
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
 volumes:
-  mysql_data:
-  vendor_data: 
+  mysql_data: 

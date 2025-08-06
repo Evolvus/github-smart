@@ -1,6 +1,6 @@
 # GitHub Smart - Issue Management System
 
-A PHP-based web application for managing and tracking GitHub issues with advanced filtering, analytics, and project management capabilities.
+A production-ready PHP-based web application for managing and tracking GitHub issues with advanced filtering, analytics, and project management capabilities.
 
 ## 🚀 Features
 
@@ -12,118 +12,70 @@ A PHP-based web application for managing and tracking GitHub issues with advance
 - **Real-time Updates**: Live data refresh and notifications
 - **DataTables Integration**: Advanced table features with sorting, filtering, and export
 - **Security Hardened**: Input validation, SQL injection protection, and comprehensive logging
+- **Production Ready**: Docker-based deployment with health checks and monitoring
 
 ## 📋 Requirements
 
-### Option 1: Traditional Setup
+### Production Deployment
+- **Docker**: 20.10 or higher
+- **Docker Compose**: 2.0 or higher
+- **Memory**: Minimum 2GB RAM
+- **Storage**: At least 5GB free space
+- **GitHub Personal Access Token**
+
+### Development Setup
 - **PHP**: 8.0 or higher
 - **MySQL**: 5.7 or higher
 - **Composer**: 2.0 or higher
-- **GitHub Personal Access Token**
-
-### Option 2: Docker Setup (Recommended)
-- **Docker Desktop**: Latest version
-- **Docker Compose**: Included with Docker Desktop
-- **GitHub Personal Access Token**
 
 ## 🛠️ Installation
 
-### 🐳 Option 1: Docker Setup (Recommended)
+### 🐳 Production Deployment (Recommended)
 
-#### Quick Start
-```bash
-# Clone the repository
-git clone <repository-url>
-cd github-smart
+#### Quick Start with Pre-built Image
 
-# Setup environment files (automated)
-./setup-env.sh
+1. **Download deployment files**
+   ```bash
+   # Download the latest release artifacts from GitHub
+   # Or use the deployment script to fetch from GitHub Container Registry
+   ```
 
-# Install dependencies locally (recommended to avoid Docker build issues)
-composer install
+2. **Setup environment**
+   ```bash
+   # Copy the environment template
+   cp docker.env.example docker.env
+   
+   # Edit with your production settings
+   nano docker.env
+   ```
 
-# Edit environment files with your settings
-nano docker.env
-nano .env
+3. **Deploy**
+   ```bash
+   # Run the deployment script
+   ./scripts/deploy-production.sh deploy
+   ```
 
-# Start the application with the new setup script
-./scripts/docker-setup.sh full-setup
-```
+#### Build from Source
 
-#### Manual Docker Setup
-```bash
-# Build and start containers
-docker-compose up --build -d
+1. **Clone and setup**
+   ```bash
+   git clone <repository-url>
+   cd github-smart
+   ./scripts/deploy-production.sh setup
+   ```
 
-# Access the application
-# Web: http://localhost:8081
-# MySQL: localhost:3306
+2. **Configure environment**
+   ```bash
+   # Edit docker.env with your settings
+   nano docker.env
+   ```
 
-# Note: Document root is now /var/www/html/public/
-```
+3. **Deploy**
+   ```bash
+   ./scripts/deploy-production.sh deploy
+   ```
 
-#### Alternative: Use start-docker.sh script
-```bash
-# Use the provided startup script
-./start-docker.sh
-```
-
-#### Troubleshooting Docker Issues
-If you encounter vendor directory or autoloader issues:
-
-```bash
-# First, ensure dependencies are installed locally
-composer install
-
-# Use the troubleshooting script
-./scripts/docker-setup.sh full-setup
-
-# Or run individual commands:
-./scripts/docker-setup.sh cleanup    # Clean up Docker resources
-./scripts/docker-setup.sh rebuild    # Rebuild containers
-./scripts/docker-setup.sh verify     # Verify vendor directory
-./scripts/docker-setup.sh status     # Check container status
-```
-
-#### Docker Environment Configuration
-Copy the example file and configure your settings:
-```bash
-# Copy the example file
-cp docker.env.example docker.env
-
-# Edit with your actual values
-nano docker.env
-```
-
-Edit `docker.env` with your configuration:
-```env
-# Application Configuration
-APP_NAME=CRUX
-APP_ENV=development
-APP_DEBUG=true
-
-# Database Configuration
-DB_HOST=mysql
-DB_PORT=3306
-DB_NAME=project_management
-DB_USER=root
-DB_PASSWORD=your_password
-
-# GitHub Configuration
-# Replace with your actual GitHub Personal Access Token
-GITHUB_TOKEN=your_github_token_here
-GITHUB_ORG=Syneca
-
-# Logging Configuration
-LOG_LEVEL=INFO
-LOG_FILE=app.log
-
-# Docker-specific Settings
-MYSQL_ROOT_PASSWORD=your_password
-MYSQL_DATABASE=project_management
-```
-
-### 🖥️ Option 2: Traditional Setup
+### 🖥️ Development Setup
 
 #### 1. Clone the Repository
 ```bash
@@ -138,11 +90,8 @@ composer install
 
 #### 3. Environment Setup
 ```bash
-# Setup environment files (automated)
+# Setup environment files
 ./setup-env.sh
-
-# Or manually:
-# cp .env.example .env
 ```
 
 Edit `.env` with your configuration:
@@ -181,7 +130,16 @@ php -S localhost:8000 -t public/
 
 The application uses different environment files for different setups:
 
-#### For Traditional Setup
+#### For Production Deployment
+```bash
+# Copy the example file
+cp docker.env.example docker.env
+
+# Edit with your settings
+nano docker.env
+```
+
+#### For Development Setup
 ```bash
 # Copy the example file
 cp .env.example .env
@@ -189,23 +147,6 @@ cp .env.example .env
 # Edit with your settings
 nano .env
 ```
-
-#### For Docker Setup
-```bash
-# Copy the example files
-cp docker.env.example docker.env
-cp .env.example .env
-
-# Edit with your settings
-nano docker.env
-nano .env
-```
-
-#### Environment File Differences
-- **`.env`**: Used for traditional PHP setup
-- **`docker.env`**: Used for Docker setup (contains Docker-specific settings)
-- **`.env.example`**: Template for traditional setup
-- **`docker.env.example`**: Template for Docker setup
 
 ### GitHub Token Setup
 1. Go to GitHub Settings → Developer settings → Personal access tokens
@@ -215,12 +156,26 @@ nano .env
    - `read:user` (for user information)
    - `read:project` (for project access - required for GraphQL)
 
-### Database Configuration
-The application uses MySQL with the following main tables:
-- `gh_issues`: Stores GitHub issues
-- `gh_projects`: Stores project information
-- `gh_issue_tags`: Stores issue labels/tags
-- `gh_audit`: Stores audit logs
+### Production Security
+
+1. **Generate secure passwords**
+   ```bash
+   # Generate random passwords
+   openssl rand -base64 24
+   ```
+
+2. **Set APP_KEY**
+   ```bash
+   # Generate a random 32-character string
+   openssl rand -base64 24
+   ```
+
+3. **Configure environment**
+   ```env
+   APP_ENV=production
+   APP_DEBUG=false
+   LOG_LEVEL=INFO
+   ```
 
 ## 📁 Project Structure
 
@@ -276,10 +231,12 @@ github-smart/
 │   └── test_*.php          # Test files
 ├── docs/                    # Documentation
 │   ├── PROJECT_STRUCTURE.md # Project structure
+│   ├── PRODUCTION_DEPLOYMENT.md # Production deployment guide
 │   ├── API.md              # API documentation
 │   ├── DEPLOYMENT.md       # Deployment guide
 │   └── SECURITY.md         # Security documentation
 ├── scripts/                 # Utility scripts
+│   ├── deploy-production.sh # Production deployment script
 │   ├── setup_database.php  # Database setup
 │   ├── setup_cli.php       # CLI setup
 │   └── monitor_logs.php    # Log monitoring
@@ -290,8 +247,7 @@ github-smart/
 ├── docker-compose.yml       # Docker configuration
 ├── docker.env              # Docker environment (gitignored)
 ├── docker.env.example      # Docker environment template
-├── start-docker.sh         # Docker startup script
-├── setup-env.sh            # Environment setup script
+├── Dockerfile              # Docker image definition
 ├── composer.json           # Dependencies
 ├── composer.lock           # Dependency lock
 ├── .env                    # Environment configuration
@@ -313,6 +269,8 @@ github-smart/
 - **Environment-based Configuration**: Separate configs for development/production
 - **Rate Limiting**: Basic rate limiting implementation
 - **Session Security**: Secure session configuration
+- **Non-root Docker User**: Application runs as non-root user
+- **Health Checks**: Automatic health monitoring
 
 ## 🚀 Usage
 
@@ -341,93 +299,32 @@ Visit the application URL to access the main dashboard with:
 
 ### Manual GitHub Sync
 ```bash
-# Traditional setup
-curl -X POST http://localhost:8000/api/getGHIssues.php
-
-# Docker setup
+# Production deployment
 docker-compose exec app php api/getGHIssues.php
-```
 
-## 🧪 Testing
-
-Run the test suite:
-```bash
-composer test
-```
-
-Run static analysis:
-```bash
-composer analyze
-```
-
-## 📊 Monitoring
-
-### Logs
-Application logs are stored in `app.log` with different levels:
-- `INFO`: General application events
-- `ERROR`: Error conditions
-- `WARNING`: Warning conditions
-- `DEBUG`: Debug information
-
-### Docker Logs
-```bash
-# View all logs
-docker-compose logs -f
-
-# View specific container logs
-docker-compose logs -f app
-docker-compose logs -f mysql
-```
-
-### Database Monitoring
-Monitor database performance with:
-```sql
--- Check table sizes
-SELECT 
-    table_name,
-    ROUND(((data_length + index_length) / 1024 / 1024), 2) AS 'Size (MB)'
-FROM information_schema.tables 
-WHERE table_schema = 'project_management';
-
--- Check recent activity
-SELECT * FROM gh_audit ORDER BY end_time DESC LIMIT 10;
-```
-
-## 🔄 Deployment
-
-### Production Checklist
-1. Set `APP_ENV=production` in `.env`
-2. Set `APP_DEBUG=false` in `.env`
-3. Configure proper database credentials
-4. Set up HTTPS
-5. Configure web server (Apache/Nginx)
-6. Set up proper file permissions
-7. Configure backup strategy
-
-### Docker Production
-```bash
-# Build production image
-docker-compose -f docker-compose.prod.yml up --build -d
-```
-
-### Web Server Configuration
-
-#### Apache (.htaccess)
-```apache
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L]
-```
-
-#### Nginx
-```nginx
-location / {
-    try_files $uri $uri/ /index.php?$query_string;
-}
+# Development setup
+curl -X POST http://localhost:8000/api/getGHIssues.php
 ```
 
 ## 🐳 Docker Commands
+
+### Production Deployment
+```bash
+# Deploy application
+./scripts/deploy-production.sh deploy
+
+# Check status
+./scripts/deploy-production.sh status
+
+# View logs
+./scripts/deploy-production.sh logs
+
+# Stop application
+./scripts/deploy-production.sh stop
+
+# Restart application
+./scripts/deploy-production.sh restart
+```
 
 ### Container Management
 ```bash
@@ -456,10 +353,82 @@ docker-compose exec mysql mysql -u root -p
 ### Database Operations
 ```bash
 # Access MySQL
-docker-compose exec mysql mysql -u root -pEvolvus*123 project_management
+docker-compose exec mysql mysql -u root -p project_management
 
 # Import data
-docker-compose exec mysql mysql -u root -pEvolvus*123 project_management < create_tables.sql
+docker-compose exec mysql mysql -u root -p project_management < create_tables.sql
+```
+
+## 📊 Monitoring
+
+### Health Checks
+The application includes automatic health checks:
+```bash
+# Check container health
+docker-compose ps
+
+# View health check logs
+docker-compose logs app | grep health
+```
+
+### Logs
+```bash
+# View all logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f app
+docker-compose logs -f mysql
+```
+
+### Application Logs
+Application logs are stored in the container:
+```bash
+# View application logs
+docker-compose exec app tail -f /var/www/html/logs/app.log
+```
+
+## 🔄 Deployment
+
+### Production Checklist
+1. Set `APP_ENV=production` in `docker.env`
+2. Set `APP_DEBUG=false` in `docker.env`
+3. Configure proper database credentials
+4. Set up HTTPS (if applicable)
+5. Configure proper file permissions
+6. Set up backup strategy
+7. Configure monitoring
+
+### GitHub Package Registry
+The application is automatically built and published to GitHub Container Registry on each release.
+
+### Web Server Configuration
+
+#### Apache (.htaccess)
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+```
+
+#### Nginx
+```nginx
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
+```
+
+## 🧪 Testing
+
+Run the test suite:
+```bash
+composer test
+```
+
+Run static analysis:
+```bash
+composer analyze
 ```
 
 ## 🤝 Contributing
@@ -487,7 +456,7 @@ For support and questions:
 #### Docker Issues
 - Ensure Docker Desktop is running
 - Check container logs: `docker-compose logs -f`
-- Verify ports 8080 and 3306 are available
+- Verify ports 8081 and 3306 are available
 
 #### GitHub API Issues
 - Verify GitHub token has correct permissions
@@ -499,18 +468,20 @@ For support and questions:
 - Check MySQL service is running
 - Review database permissions
 
-#### Dependency Issues
-- If you encounter "Failed opening required" errors with vendor files:
-  ```bash
-  # Run the dependency fix script
-  ./scripts/fix-dependencies.sh
-  
-  # Or manually fix in Docker container
-  docker-compose exec app composer install
-  docker-compose exec app composer dump-autoload --optimize
-  ```
+#### Production Deployment Issues
+- Run environment check: `./scripts/deploy-production.sh check`
+- Verify all environment variables are set
+- Check system resources (memory, disk space)
 
 ## 🔄 Changelog
+
+### v2.0.0
+- **Production Docker Setup**: Complete rewrite for production deployment
+- **GitHub Package Registry**: Automated builds and publishing
+- **Security Enhancements**: Non-root user, security headers, health checks
+- **Deployment Scripts**: Automated deployment and management
+- **Multi-stage Builds**: Optimized Docker images
+- **Health Monitoring**: Built-in health checks and monitoring
 
 ### v1.1.0
 - Added Docker support

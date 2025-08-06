@@ -44,3 +44,16 @@ temp/
 # Backup files
 *.bak
 *.backup
+
+# Production deployment packages
+github-smart-deployment-*.tar.gz
+github-smart-deployment-*.tar.gz.sha256
+deployment/
+
+# Docker build artifacts
+.dockerignore
+docker-compose.override.yml
+
+# Development files (old approach)
+start-docker.sh
+setup-env.sh
