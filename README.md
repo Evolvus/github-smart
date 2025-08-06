@@ -1,44 +1,127 @@
 # GitHub Smart - Issue Management System
 
-A production-ready PHP-based web application for managing and tracking GitHub issues with advanced filtering, analytics, and project management capabilities.
+A production-ready PHP-based web application for managing and tracking GitHub issues with advanced filtering, analytics, and project management capabilities. Features a modern CI/CD pipeline with automated Docker deployments and one-touch deployment scripts.
+
+## 📊 Project Status
+
+- **🚀 Status**: Production Ready
+- **🐳 Docker**: Fully containerized with multi-platform support
+- **🔄 CI/CD**: Automated GitHub Actions pipeline
+- **📦 Package**: Available on GitHub Container Registry
+- **🛠️ Deployment**: One-touch deployment script available
+- **📈 Version**: Latest stable release
+
+## 🚀 Quick Start
+
+**Deploy in 30 seconds:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh | bash -s -- -o YOUR_ORG -t YOUR_GITHUB_TOKEN
+```
+
+**Or download and run:**
+```bash
+curl -O https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh
+chmod +x deploy.sh
+./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN
+```
 
 ## 🚀 Features
 
-- **GitHub Integration**: Fetch and sync issues from GitHub organizations
-- **Dashboard Analytics**: Real-time statistics and charts
-- **Advanced Filtering**: Filter by assignee, tags, projects, and more
-- **Project Management**: Organize issues by projects and buckets
-- **User Management**: Role-based access control
-- **Real-time Updates**: Live data refresh and notifications
-- **DataTables Integration**: Advanced table features with sorting, filtering, and export
-- **Security Hardened**: Input validation, SQL injection protection, and comprehensive logging
-- **Production Ready**: Docker-based deployment with health checks and monitoring
+- **🔗 GitHub Integration**: Fetch and sync issues from GitHub organizations
+- **📊 Dashboard Analytics**: Real-time statistics and charts
+- **🔍 Advanced Filtering**: Filter by assignee, tags, projects, and more
+- **📋 Project Management**: Organize issues by projects and buckets
+- **👥 User Management**: Role-based access control
+- **⚡ Real-time Updates**: Live data refresh and notifications
+- **📋 DataTables Integration**: Advanced table features with sorting, filtering, and export
+- **🛡️ Security Hardened**: Input validation, SQL injection protection, and comprehensive logging
+- **🐳 Production Ready**: Docker-based deployment with health checks and monitoring
 
 ## 📋 Requirements
 
 ### Production Deployment
-- **Docker**: 20.10 or higher
-- **Docker Compose**: 2.0 or higher
-- **Memory**: Minimum 2GB RAM
-- **Storage**: At least 5GB free space
-- **GitHub Personal Access Token**
+- **🐳 Docker**: 20.10 or higher
+- **📦 Docker Compose**: 2.0 or higher (optional)
+- **💾 Memory**: Minimum 2GB RAM
+- **💿 Storage**: At least 5GB free space
+- **🔑 GitHub Personal Access Token**: With `repo` permissions
 
 ### Development Setup
-- **PHP**: 8.0 or higher
-- **MySQL**: 5.7 or higher
-- **Composer**: 2.0 or higher
+- **🐘 PHP**: 8.0 or higher
+- **🗄️ MySQL**: 5.7 or higher
+- **📦 Composer**: 2.0 or higher
+
+## 🔄 Recent Updates
+
+### Latest Improvements (v2.0)
+- ✅ **One-Touch Deployment**: Automated deployment script with comprehensive error handling
+- ✅ **CI/CD Pipeline**: GitHub Actions workflow with multi-platform Docker builds
+- ✅ **Public Package**: Docker images available on GitHub Container Registry
+- ✅ **Token Validation**: Automatic GitHub token validation and permission checking
+- ✅ **Health Checks**: Real-time container health monitoring
+- ✅ **Troubleshooting**: Comprehensive error handling and debugging information
+- ✅ **Documentation**: Updated README with detailed deployment instructions
 
 ## 🛠️ Installation
 
 ### 🐳 Production Deployment (Recommended)
 
-#### Option 1: Docker Compose (Recommended for Production)
+#### Option 1: One-Touch Deployment Script (Recommended)
+
+The easiest way to deploy GitHub Smart is using the automated deployment script that handles everything for you.
+
+**Prerequisites:**
+- Docker installed and running
+- GitHub Personal Access Token with `repo` permissions
+- Internet connection
+
+**Quick Start:**
+```bash
+# Download and run the deployment script
+curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh | bash -s -- -o YOUR_ORG -t YOUR_GITHUB_TOKEN
+```
+
+**Manual Deployment:**
+```bash
+# Download the script
+curl -O https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh
+chmod +x deploy.sh
+
+# Run deployment
+./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN
+```
+
+**Deployment Options:**
+```bash
+# Command line arguments
+./deploy.sh -o Syneca -t ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Environment variables
+export GITHUB_ORG=Syneca
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+./deploy.sh
+
+# Interactive mode (prompts for credentials)
+./deploy.sh
+
+# Custom configuration
+./deploy.sh -o Syneca -t YOUR_TOKEN -p 9090 -n my-github-smart -i latest
+```
+
+**What the script does:**
+- ✅ Validates your GitHub token and permissions
+- ✅ Pulls the latest Docker image from GitHub Packages
+- ✅ Creates all necessary configuration files automatically
+- ✅ Starts the container with proper health checks
+- ✅ Provides deployment status and access information
+
+#### Option 2: Docker Compose (Advanced)
 
 This method sets up a complete production environment with both the application and MySQL database.
 
 1. **Clone and setup**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Evolvus/github-smart.git
    cd github-smart
    ```
 
@@ -69,69 +152,39 @@ This method sets up a complete production environment with both the application 
    - Application: http://localhost:8081
    - Database: localhost:3306
 
-#### Option 2: Single Container Deployment
-
-This method uses the deploy.sh script for a simpler single-container setup that pulls the Docker image from GitHub Packages.
-
-1. **Prerequisites**
-   - Ensure you have access to the GitHub Packages repository
-   - Your GitHub Personal Access Token has `read:packages` permission
-
-2. **Deploy using the script**
-   ```bash
-   # Run with your GitHub credentials
-   ./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN
-   ```
-
-3. **Using Environment Variables**
-   ```bash
-   export GITHUB_ORG="your_organization"
-   export GITHUB_TOKEN="your-github-token"
-   ./deploy.sh
-   ```
-
-4. **Interactive mode**
-   ```bash
-   # The script will prompt for credentials if not provided
-   ./deploy.sh
-   ```
-
-5. **Custom options**
-   ```bash
-   # Specify custom port, container name, and image tag
-   ./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN -p 9090 -n my-github-smart -i v1.0.0
-   ```
-
 ### Deployment Script Features
 
-The `deploy.sh` script provides a one-touch deployment experience:
+The `deploy.sh` script provides a comprehensive one-touch deployment experience:
 
-- **Automatic Environment Setup**: Creates `docker.env` file with all necessary configuration
-- **Docker Image Management**: Pulls images from GitHub Packages registry
-- **Container Management**: Stops and removes existing containers before deployment
-- **Health Checks**: Verifies container startup and provides status information
-- **Flexible Configuration**: Supports command-line arguments, environment variables, and interactive prompts
-- **Error Handling**: Comprehensive error checking and user-friendly messages
-- **Data Persistence**: Automatically creates and mounts data directory
+- **🔐 Token Validation**: Automatically validates GitHub token and permissions
+- **🐳 Docker Image Management**: Pulls latest images from GitHub Packages registry
+- **⚙️ Automatic Configuration**: Creates `docker.env` file with all necessary settings
+- **🔄 Container Management**: Stops and removes existing containers before deployment
+- **💚 Health Checks**: Verifies container startup and provides real-time status
+- **🎛️ Flexible Configuration**: Supports command-line arguments, environment variables, and interactive prompts
+- **🛡️ Error Handling**: Comprehensive error checking with detailed troubleshooting
+- **💾 Data Persistence**: Automatically creates and mounts data directory
+- **📊 Status Reporting**: Provides clear feedback on deployment progress and results
 
 ## 🔄 CI/CD Pipeline
 
 ### GitHub Actions Workflow
 
-The repository includes a GitHub Actions workflow that automatically builds and deploys Docker images to GitHub Packages:
+The repository includes a modern GitHub Actions workflow that automatically builds and deploys Docker images to GitHub Packages:
 
-- **Trigger**: Runs on pushes to `main`/`master` branches, pull requests, and releases
-- **Registry**: GitHub Container Registry (ghcr.io)
-- **Image**: `ghcr.io/{organization}/github-smart:{tag}`
-- **Platforms**: Linux AMD64 and ARM64
-- **Caching**: Uses GitHub Actions cache for faster builds
+- **🚀 Trigger**: Runs on pushes to `main`/`master` branches, pull requests, and releases
+- **📦 Registry**: GitHub Container Registry (ghcr.io)
+- **🐳 Image**: `ghcr.io/evolvus/github-smart:{tag}` (public package)
+- **🖥️ Platforms**: Linux AMD64 and ARM64
+- **⚡ Caching**: Uses GitHub Actions cache for faster builds
+- **🏷️ Tags**: Automatic tagging based on branch, commit, and releases
 
-The workflow automatically:
-1. Sets up Docker Buildx for multi-platform builds
-2. Logs in to GitHub Container Registry
-3. Extracts metadata and creates appropriate tags
-4. Builds and pushes the Docker image
-5. Outputs image information for deployment
+**The workflow automatically:**
+1. ✅ Sets up Docker Buildx for multi-platform builds
+2. ✅ Logs in to GitHub Container Registry
+3. ✅ Extracts metadata and creates appropriate tags
+4. ✅ Builds and pushes the Docker image
+5. ✅ Outputs image information for deployment
 
 ### Manual Build and Deploy
 
@@ -139,20 +192,20 @@ If you need to build and deploy manually:
 
 ```bash
 # Build the Docker image
-docker build -t ghcr.io/your-org/github-smart:latest .
+docker build -t ghcr.io/evolvus/github-smart:latest .
 
 # Login to GitHub Container Registry
-echo "your-token" | docker login ghcr.io -u your-username --password-stdin
+echo "your-token" | docker login ghcr.io -u evolvus --password-stdin
 
 # Push the image
-docker push ghcr.io/your-org/github-smart:latest
+docker push ghcr.io/evolvus/github-smart:latest
 ```
 
 #### Build from Source
 
 1. **Clone and setup**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Evolvus/github-smart.git
    cd github-smart
    ```
 
@@ -167,11 +220,41 @@ docker push ghcr.io/your-org/github-smart:latest
    docker push ghcr.io/evolvus/github-smart:latest
    ```
 
-### 🖥️ Development Setup
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Token Permissions:**
+- Ensure your GitHub token has `repo` permissions
+- Token format should be: `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+
+**Docker Issues:**
+- Make sure Docker is running: `docker info`
+- Test connectivity: `docker pull hello-world`
+
+**Deployment Issues:**
+- Check container logs: `docker logs github-smart`
+- Verify container status: `docker ps`
+
+### Getting Help
+
+- 📖 **Troubleshooting Guide**: See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions
+- 🐛 **Issues**: Report bugs on [GitHub Issues](https://github.com/Evolvus/github-smart/issues)
+- 💬 **Discussions**: Join the conversation on [GitHub Discussions](https://github.com/Evolvus/github-smart/discussions)
+
+## 🖥️ Development Setup
+
+### Prerequisites
+- **PHP**: 8.0 or higher
+- **MySQL**: 5.7 or higher
+- **Composer**: 2.0 or higher
+- **Docker**: 20.10 or higher (for containerized development)
+
+### Local Development
 
 #### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/Evolvus/github-smart.git
 cd github-smart
 ```
 
@@ -182,11 +265,11 @@ composer install
 
 #### 3. Environment Setup
 ```bash
-# Setup environment files
-./setup-env.sh
+# Copy environment file
+cp docker.env.example docker.env
 ```
 
-Edit `.env` with your configuration:
+Edit `docker.env` with your configuration:
 ```env
 # Database Configuration
 DB_HOST=localhost
@@ -561,11 +644,29 @@ composer analyze
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+We welcome contributions! Here's how you can help:
+
+### 🚀 Quick Contribution
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **Make** your changes
+4. **Test** your changes thoroughly
+5. **Commit** with clear messages: `git commit -m "Add amazing feature"`
+6. **Push** to your branch: `git push origin feature/amazing-feature`
+7. **Submit** a pull request
+
+### 📋 Contribution Guidelines
+- ✅ Follow the existing code style
+- ✅ Add tests for new features
+- ✅ Update documentation as needed
+- ✅ Ensure all tests pass
+- ✅ Provide clear commit messages
+
+### 🐛 Reporting Issues
+- Use the GitHub issue template
+- Include detailed reproduction steps
+- Provide environment information
+- Include relevant logs
 
 ## 📝 License
 
@@ -573,11 +674,18 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🆘 Support
 
-For support and questions:
-- Create an issue in the repository
-- Check the logs in `app.log`
-- Verify your GitHub token permissions
-- Ensure database connectivity
+### Getting Help
+- 🐛 **Issues**: [GitHub Issues](https://github.com/Evolvus/github-smart/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/Evolvus/github-smart/discussions)
+- 📖 **Documentation**: This README and [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- 🔧 **Deployment Help**: Check the troubleshooting guide for common issues
+
+### Quick Support Checklist
+- ✅ Check container logs: `docker logs github-smart`
+- ✅ Verify GitHub token permissions
+- ✅ Ensure Docker is running: `docker info`
+- ✅ Check application status: `docker ps`
+- ✅ Review the troubleshooting guide
 
 ### Troubleshooting
 
