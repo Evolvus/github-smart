@@ -260,6 +260,22 @@ try {
 
         $issues = json_decode($response, true);
 
+        // Check if the response is an error
+        if (isset($issues['message']) && $issues['message'] === 'Bad credentials') {
+            $responseArray = [
+                'status' => 'error',
+                'message' => 'GitHub authentication failed. Please check your GitHub token.',
+                'requires_setup' => true
+            ];
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+                header('Content-Type: application/json');
+                echo json_encode($responseArray);
+            } else {
+                echo $responseArray['message'];
+            }
+            exit;
+        }
+
         // If there are no more issues, break out of the loop
         if (empty($issues)) {
             break;
@@ -267,8 +283,13 @@ try {
 
         // Loop through GitHub issues and insert into MySQL database
         foreach ($issues as $issue) {
+            // Check if $issue is an array before accessing it
+            if (!is_array($issue)) {
+                continue; // Skip invalid issues
+            }
+            
             // Check if we have project data for this issue
-            $projectData = (is_array($arr) && isset($arr[$issue['node_id']])) ? $arr[$issue['node_id']] : null;
+            $projectData = (is_array($arr) && is_array($issue) && isset($issue['node_id']) && isset($arr[$issue['node_id']])) ? $arr[$issue['node_id']] : null;
             insertIssueIntoDatabase($pdo, $issue, $projectData);
         }
 
