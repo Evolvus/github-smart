@@ -127,7 +127,9 @@ cleanup_existing() {
 
 # Function to pull Docker image from public GitHub Container Registry
 pull_image() {
-    local image_name="ghcr.io/${GITHUB_ORG}/github-smart:${IMAGE_TAG}"
+    # Convert organization name to lowercase for Docker image name
+    local org_lowercase=$(echo "$GITHUB_ORG" | tr '[:upper:]' '[:lower:]')
+    local image_name="ghcr.io/${org_lowercase}/github-smart:${IMAGE_TAG}"
     
     print_status "Pulling Docker image from public GitHub Container Registry: $image_name"
     
@@ -139,7 +141,7 @@ pull_image() {
         print_status "Troubleshooting steps:"
         print_status "1. Verify the image exists: https://github.com/${GITHUB_ORG}/github-smart/packages"
         print_status "2. Check if the GitHub Action has run and published the image"
-        print_status "3. Verify organization name: $GITHUB_ORG"
+        print_status "3. Verify organization name: $GITHUB_ORG (using lowercase: $org_lowercase)"
         print_status "4. Check internet connection and Docker accessibility"
         print_status "5. Try: docker pull hello-world (to test Docker connectivity)"
         
@@ -188,7 +190,9 @@ EOF
 
 # Function to run container
 run_container() {
-    local image_name="ghcr.io/${GITHUB_ORG}/github-smart:${IMAGE_TAG}"
+    # Convert organization name to lowercase for Docker image name
+    local org_lowercase=$(echo "$GITHUB_ORG" | tr '[:upper:]' '[:lower:]')
+    local image_name="ghcr.io/${org_lowercase}/github-smart:${IMAGE_TAG}"
     
     print_status "Starting container: $CONTAINER_NAME"
     
