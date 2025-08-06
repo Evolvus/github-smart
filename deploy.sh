@@ -19,6 +19,7 @@ DOCKER_IMAGE=""
 CONTAINER_NAME="github-smart"
 PORT="8080"
 DATA_DIR="./data"
+BUILD_LOCAL=false
 
 # Function to print colored output
 print_status() {
@@ -76,6 +77,18 @@ get_user_input() {
     fi
 }
 
+# Function to build image locally
+build_image_locally() {
+    print_status "Building Docker image locally..."
+    if docker build -t "$DOCKER_IMAGE" .; then
+        print_success "Docker image built successfully"
+        return 0
+    else
+        print_error "Failed to build Docker image"
+        exit 1
+    fi
+}
+
 # Function to validate inputs
 validate_inputs() {
     if [ -z "$GITHUB_ORG" ]; then
@@ -119,11 +132,42 @@ pull_image() {
         return 0
     fi
     
+    # If build-local flag is set, build locally
+    if [ "$BUILD_LOCAL" = true ]; then
+        print_status "Building Docker image locally as requested..."
+        build_image_locally
+        return 0
+    fi
+    
+    # Only try to pull from registry if image doesn't exist locally
+    print_status "Local image not found, attempting to pull from GitHub Container Registry..."
     print_status "Logging in to GitHub Container Registry..."
-    echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ORG" --password-stdin
-
-    print_status "Pulling Docker image: $DOCKER_IMAGE"
-    docker pull "$DOCKER_IMAGE"
+    if echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ORG" --password-stdin; then
+        print_status "Pulling Docker image: $DOCKER_IMAGE"
+        if docker pull "$DOCKER_IMAGE"; then
+            print_success "Docker image pulled successfully"
+        else
+            print_warning "Failed to pull image from registry"
+            print_status "Would you like to build the image locally? (y/n)"
+            read -r response
+            if [[ "$response" =~ ^[Yy]$ ]]; then
+                build_image_locally
+            else
+                print_error "Cannot proceed without Docker image"
+                exit 1
+            fi
+        fi
+    else
+        print_error "Failed to login to GitHub Container Registry"
+        print_status "Would you like to build the image locally? (y/n)"
+        read -r response
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            build_image_locally
+        else
+            print_error "Cannot proceed without Docker image"
+            exit 1
+        fi
+    fi
 }
 
 # Function to run container
@@ -175,6 +219,7 @@ show_usage() {
     echo "  -p, --port PORT           Port to expose (default: 8080)"
     echo "  -n, --name NAME           Container name (default: github-smart)"
     echo "  -d, --data-dir DIR        Data directory (default: ./data)"
+    echo "  -b, --build-local         Build Docker image locally instead of pulling"
     echo "  -h, --help                Show this help message"
     echo
     echo "Environment variables:"
@@ -213,6 +258,10 @@ while [[ $# -gt 0 ]]; do
         -d|--data-dir)
             DATA_DIR="$2"
             shift 2
+            ;;
+        -b|--build-local)
+            BUILD_LOCAL=true
+            shift
             ;;
         -h|--help)
             show_usage

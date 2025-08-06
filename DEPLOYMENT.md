@@ -48,10 +48,11 @@ The deployment script supports the following options:
 
 - `-o, --org`: GitHub organization/username
 - `-t, --token`: GitHub Personal Access Token
-- `-i, --image`: Docker image (default: `ghcr.io/ORG/github-smart:latest`)
+- `-i, --image`: Docker image (default: `ghcr.io/evolvus/github-smart:latest`)
 - `-p, --port`: Port to expose (default: 8080)
 - `-n, --name`: Container name (default: github-smart)
 - `-d, --data-dir`: Data directory (default: ./data)
+- `-b, --build-local`: Build Docker image locally instead of pulling
 
 ## Examples
 
@@ -63,7 +64,10 @@ The deployment script supports the following options:
 ./deploy.sh -o evolvus -t ghp_xxxxxxxx -p 9000 -n my-github-smart
 
 # Custom data directory
-./deploy.sh -o evolvus -t ghp_xxxxxxxx -d /opt/github-smart-data
+./deploy.sh -o syneca -t ghp_xxxxxxxx -d /opt/github-smart-data
+
+# Build image locally
+./deploy.sh -o syneca -t ghp_xxxxxxxx -b
 ```
 
 ## What the Script Does
@@ -72,7 +76,7 @@ The deployment script supports the following options:
 2. **Validates Inputs**: Ensures required parameters are provided
 3. **Creates Data Directory**: Sets up persistent storage
 4. **Cleans Up**: Stops and removes any existing containers
-5. **Pulls Image**: Downloads the latest Docker image from GitHub Packages
+5. **Pulls/Builds Image**: Downloads the latest Docker image from GitHub Packages or builds locally
 6. **Runs Container**: Starts the application with proper configuration
 7. **Verifies Status**: Checks that the container is running properly
 
@@ -133,6 +137,17 @@ netstat -tulpn | grep :8080
 - Ensure your token has the correct permissions
 - Check if the token is expired
 - Verify the organization name is correct
+
+### GitHub Container Registry Access Issues
+If you encounter "denied: denied" errors when trying to pull from GitHub Container Registry:
+```bash
+# Build the image locally instead
+./deploy.sh -o syneca -t YOUR_TOKEN -b
+
+# Or manually build and deploy
+docker build -t ghcr.io/evolvus/github-smart:latest .
+./deploy.sh -o syneca -t YOUR_TOKEN
+```
 
 ## Development
 
