@@ -241,17 +241,46 @@ EOF
     print_status "MySQL user password: $mysql_password"
 }
 
+# Function to download required files
+download_required_files() {
+    print_status "Downloading required Docker Compose files..."
+    
+    # Download docker-compose.yml if it doesn't exist
+    if [ ! -f "docker-compose.yml" ]; then
+        print_status "Downloading docker-compose.yml..."
+        curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/docker-compose.yml -o docker-compose.yml
+        if [ $? -eq 0 ]; then
+            print_success "Downloaded docker-compose.yml"
+        else
+            print_error "Failed to download docker-compose.yml"
+            exit 1
+        fi
+    fi
+    
+    # Download create_tables.sql if it doesn't exist
+    if [ ! -f "create_tables.sql" ]; then
+        print_status "Downloading create_tables.sql..."
+        curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/create_tables.sql -o create_tables.sql
+        if [ $? -eq 0 ]; then
+            print_success "Downloaded create_tables.sql"
+        else
+            print_warning "Failed to download create_tables.sql - database tables will be created on first use"
+        fi
+    fi
+}
+
 # Function to run container with docker-compose
 run_container() {
     print_status "Starting application with Docker Compose (includes MySQL)"
+    
+    # Download required files
+    download_required_files
     
     # Read the generated passwords from docker.env
     source docker.env
     
     # Create docker-compose override file with our settings
     cat > docker-compose.override.yml << EOF
-version: '3.8'
-
 services:
   app:
     ports:
