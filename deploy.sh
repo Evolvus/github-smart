@@ -127,11 +127,13 @@ cleanup_existing() {
 
 # Function to pull Docker image from public GitHub Container Registry
 pull_image() {
-    # Convert organization name to lowercase for Docker image name
-    local org_lowercase=$(echo "$GITHUB_ORG" | tr '[:upper:]' '[:lower:]')
-    local image_name="ghcr.io/${org_lowercase}/github-smart:${IMAGE_TAG}"
+    # The Docker image is published to the repository owner's organization
+    # For now, we'll use 'evolvus' as the organization for the Docker image
+    local docker_org="evolvus"
+    local image_name="ghcr.io/${docker_org}/github-smart:${IMAGE_TAG}"
     
     print_status "Pulling Docker image from public GitHub Container Registry: $image_name"
+    print_status "Note: Docker image is published to ${docker_org} organization (repository owner)"
     
     # Since the package is public, we don't need to login
     if docker pull "$image_name" 2>&1; then
@@ -139,11 +141,10 @@ pull_image() {
     else
         print_error "Failed to pull image from registry"
         print_status "Troubleshooting steps:"
-        print_status "1. Verify the image exists: https://github.com/${GITHUB_ORG}/github-smart/packages"
+        print_status "1. Verify the image exists: https://github.com/${docker_org}/github-smart/packages"
         print_status "2. Check if the GitHub Action has run and published the image"
-        print_status "3. Verify organization name: $GITHUB_ORG (using lowercase: $org_lowercase)"
-        print_status "4. Check internet connection and Docker accessibility"
-        print_status "5. Try: docker pull hello-world (to test Docker connectivity)"
+        print_status "3. Check internet connection and Docker accessibility"
+        print_status "4. Try: docker pull hello-world (to test Docker connectivity)"
         
         # Try to get more specific error information
         print_status "Attempting to check registry access..."
@@ -190,9 +191,9 @@ EOF
 
 # Function to run container
 run_container() {
-    # Convert organization name to lowercase for Docker image name
-    local org_lowercase=$(echo "$GITHUB_ORG" | tr '[:upper:]' '[:lower:]')
-    local image_name="ghcr.io/${org_lowercase}/github-smart:${IMAGE_TAG}"
+    # The Docker image is published to the repository owner's organization
+    local docker_org="evolvus"
+    local image_name="ghcr.io/${docker_org}/github-smart:${IMAGE_TAG}"
     
     print_status "Starting container: $CONTAINER_NAME"
     
