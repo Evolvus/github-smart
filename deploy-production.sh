@@ -75,8 +75,8 @@ MYSQL_USER=github_smart_user
 MYSQL_PASSWORD=$DB_PASSWORD
 
 # GitHub Configuration
-GITHUB_TOKEN=YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
-GITHUB_ORG=YOUR_ORGANIZATION_NAME
+GITHUB_TOKEN=${GITHUB_TOKEN:-YOUR_GITHUB_PERSONAL_ACCESS_TOKEN}
+GITHUB_ORG=${GITHUB_ORG:-YOUR_ORGANIZATION_NAME}
 
 # Logging Configuration
 LOG_LEVEL=INFO
@@ -203,17 +203,29 @@ chmod +x update.sh
 # Create logs directory
 mkdir -p logs
 
+# Check if GitHub token is provided
+if [ "$GITHUB_TOKEN" = "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN" ] || [ -z "$GITHUB_TOKEN" ]; then
+    echo -e "${YELLOW}⚠️  Warning: GitHub token not provided${NC}"
+    echo "You can set it using environment variables:"
+    echo "export GITHUB_TOKEN=your_github_token"
+    echo "export GITHUB_ORG=your_organization"
+    echo ""
+    echo "Or update the .env file manually after deployment."
+fi
+
 echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo ""
 echo -e "${YELLOW}📝 Next steps:${NC}"
-echo "1. Update the .env file with your GitHub token and organization:"
-echo "   - GITHUB_TOKEN=your_actual_token"
-echo "   - GITHUB_ORG=your_organization"
+if [ "$GITHUB_TOKEN" != "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN" ] && [ -n "$GITHUB_TOKEN" ]; then
+    echo "✅ GitHub token and organization configured via environment variables"
+else
+    echo "1. Set environment variables or update the .env file:"
+    echo "   export GITHUB_TOKEN=your_actual_token"
+    echo "   export GITHUB_ORG=your_organization"
+    echo "   docker-compose restart"
+fi
 echo ""
-echo "2. Restart the application:"
-echo "   docker-compose restart"
-echo ""
-echo "3. Access your application at: http://localhost"
+echo "2. Access your application at: http://localhost"
 echo ""
 echo -e "${YELLOW}📋 Useful commands:${NC}"
 echo "- Check status: docker-compose ps"
