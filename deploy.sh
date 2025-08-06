@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# GitHub Smart App Deployment Script
+# GitHub Smart App Deployment Script v2.1
 # This script pulls and deploys the GitHub Smart application using Docker
+# Features: MySQL integration, GitHub API validation, automatic database setup
 
 set -e
 
@@ -96,13 +97,25 @@ test_github_token() {
     print_status "Testing GitHub token for application use..."
     
     # Test basic API access
-    if curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user" >/dev/null 2>&1; then
-        print_success "GitHub token is valid for API access"
+    local response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user")
+    if echo "$response" | grep -q '"login"'; then
+        local username=$(echo "$response" | grep -o '"login":"[^"]*"' | cut -d'"' -f4)
+        print_success "GitHub token is valid for API access (User: $username)"
     else
         print_error "GitHub token is invalid or expired"
         print_status "Please check your token at: https://github.com/settings/tokens"
         print_status "The token is needed for the application to access GitHub API data"
+        print_status "Required scopes: repo, read:org, read:user"
         exit 1
+    fi
+    
+    # Test organization access
+    local org_response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/orgs/${GITHUB_ORG}")
+    if echo "$org_response" | grep -q '"login"'; then
+        print_success "Token has access to organization: $GITHUB_ORG"
+    else
+        print_warning "Token may not have access to organization: $GITHUB_ORG"
+        print_status "Ensure your token has 'read:org' scope"
     fi
     
     # Test repository access (for fetching issues)
@@ -124,6 +137,9 @@ create_data_dir() {
 
 # Function to stop and remove existing containers
 cleanup_existing() {
+    print_status "Cleaning up existing containers..."
+    
+    # Stop docker-compose services
     if docker-compose ps | grep -q "Up"; then
         print_status "Stopping existing application containers"
         docker-compose down || true
@@ -135,6 +151,11 @@ cleanup_existing() {
         docker stop "$CONTAINER_NAME" || true
         docker rm "$CONTAINER_NAME" || true
     fi
+    
+    # Remove any dangling containers or networks
+    docker system prune -f >/dev/null 2>&1 || true
+    
+    print_success "Cleanup completed"
 }
 
 # Function to pull Docker image from public GitHub Container Registry
@@ -260,6 +281,30 @@ EOF
     fi
 }
 
+# Function to setup database tables
+setup_database() {
+    print_status "Setting up database tables..."
+    
+    # Wait for MySQL to be ready
+    print_status "Waiting for MySQL to be ready..."
+    sleep 15
+    
+    # Copy SQL file to container
+    if [ -f "create_tables.sql" ]; then
+        docker cp create_tables.sql github-smart-mysql-1:/tmp/ 2>/dev/null || true
+        
+        # Import database schema
+        if docker-compose exec mysql bash -c "mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management < /tmp/create_tables.sql" 2>/dev/null; then
+            print_success "Database tables created successfully"
+        else
+            print_warning "Could not create database tables automatically"
+            print_status "You may need to create tables manually or they will be created on first use"
+        fi
+    else
+        print_warning "create_tables.sql not found - database tables will be created on first use"
+    fi
+}
+
 # Function to check container status
 check_status() {
     print_status "Checking application status..."
@@ -277,12 +322,31 @@ check_status() {
         print_status "Waiting for MySQL to be fully ready..."
         sleep 10
         
+        # Setup database tables
+        setup_database
+        
         # Check if we can connect to the application
         if curl -s "http://localhost:$PORT" >/dev/null 2>&1; then
             print_success "Application is responding to requests"
         else
             print_warning "Application may still be starting up"
             print_status "Please wait a moment and try accessing: http://localhost:$PORT"
+        fi
+        
+        # Test GitHub API connectivity
+        print_status "Testing GitHub API connectivity..."
+        if curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user" >/dev/null 2>&1; then
+            print_success "GitHub API is accessible"
+        else
+            print_warning "GitHub API connectivity test failed"
+        fi
+        
+        # Test application API
+        print_status "Testing application API..."
+        if curl -s -X POST -H "Content-Type: application/json" -H "X-Requested-With: XMLHttpRequest" -d '""' "http://localhost:$PORT/api/getGHIssues.php" >/dev/null 2>&1; then
+            print_success "Application API is responding"
+        else
+            print_warning "Application API test failed - this is normal if no issues exist"
         fi
     else
         print_error "Application failed to start"
@@ -391,6 +455,31 @@ main() {
     
     print_success "Deployment completed successfully!"
     print_status "You can now access the application at: http://localhost:$PORT"
+    
+    # Show deployment summary
+    echo
+    print_status "=== Deployment Summary ==="
+    print_status "Application URL: http://localhost:$PORT"
+    print_status "GitHub Organization: $GITHUB_ORG"
+    print_status "Database: MySQL (localhost:3306)"
+    print_status "Data Directory: $DATA_DIR"
+    print_status "Container Name: $CONTAINER_NAME"
+    
+    echo
+    print_status "=== Next Steps ==="
+    print_status "1. Open your browser to http://localhost:$PORT"
+    print_status "2. Click 'Retrieve GitHub Issues' to fetch data"
+    print_status "3. View the dashboard and analytics"
+    print_status "4. Check logs: docker-compose logs -f"
+    print_status "5. Stop application: docker-compose down"
+    
+    echo
+    print_status "=== Troubleshooting ==="
+    print_status "If you encounter issues:"
+    print_status "- Check logs: docker-compose logs -f"
+    print_status "- Verify GitHub token permissions"
+    print_status "- Ensure port $PORT is available"
+    print_status "- Restart: docker-compose restart"
 }
 
 # Run main function
