@@ -181,7 +181,7 @@ create_docker_env() {
     
     cat > "$env_file" << EOF
 # Application Configuration
-APP_NAME=GitHub Smart
+APP_NAME="GitHub Smart"
 APP_ENV=production
 APP_DEBUG=false
 
@@ -224,6 +224,9 @@ EOF
 run_container() {
     print_status "Starting application with Docker Compose (includes MySQL)"
     
+    # Read the generated passwords from docker.env
+    source docker.env
+    
     # Create docker-compose override file with our settings
     cat > docker-compose.override.yml << EOF
 version: '3.8'
@@ -242,10 +245,10 @@ services:
 
   mysql:
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-github_smart_root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-project_management}
-      MYSQL_USER: ${MYSQL_USER:-github_smart_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-github_smart_password}
+      MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+      MYSQL_DATABASE: $MYSQL_DATABASE
+      MYSQL_USER: $MYSQL_USER
+      MYSQL_PASSWORD: $MYSQL_PASSWORD
 EOF
 
     # Start the services
