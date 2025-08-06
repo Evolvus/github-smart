@@ -85,6 +85,28 @@ validate_inputs() {
     fi
 }
 
+# Function to test GitHub token
+test_github_token() {
+    print_status "Testing GitHub token validity..."
+    
+    # Test basic API access
+    if curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user" >/dev/null 2>&1; then
+        print_success "GitHub token is valid"
+    else
+        print_error "GitHub token is invalid or expired"
+        print_status "Please check your token at: https://github.com/settings/tokens"
+        exit 1
+    fi
+    
+    # Test packages access
+    if curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/user/packages" >/dev/null 2>&1; then
+        print_success "Token has packages access"
+    else
+        print_warning "Token may not have 'read:packages' permission"
+        print_status "Please ensure your token has the 'read:packages' scope"
+    fi
+}
+
 # Function to create data directory
 create_data_dir() {
     if [ ! -d "$DATA_DIR" ]; then
@@ -107,23 +129,54 @@ pull_image() {
     local image_name="ghcr.io/${GITHUB_ORG}/github-smart:${IMAGE_TAG}"
     
     print_status "Logging in to GitHub Container Registry..."
-    if echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ORG" --password-stdin; then
+    
+    # First, try to logout to clear any existing credentials
+    docker logout ghcr.io 2>/dev/null || true
+    
+    # Test the token format and validity
+    if [[ ! "$GITHUB_TOKEN" =~ ^ghp_[A-Za-z0-9]{36}$ ]] && [[ ! "$GITHUB_TOKEN" =~ ^gho_[A-Za-z0-9]{36}$ ]]; then
+        print_warning "Token format doesn't match expected GitHub token pattern"
+        print_status "Expected format: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    fi
+    
+    # Try to login with better error handling
+    if echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ORG" --password-stdin 2>&1; then
         print_success "Successfully logged in to GitHub Container Registry"
         
         print_status "Pulling Docker image: $image_name"
-        if docker pull "$image_name"; then
+        if docker pull "$image_name" 2>&1; then
             print_success "Docker image pulled successfully"
         else
             print_error "Failed to pull image from registry"
-            print_status "Please ensure:"
-            print_status "1. The image exists in your GitHub Packages"
-            print_status "2. Your token has the necessary permissions"
-            print_status "3. The organization name is correct"
+            print_status "Troubleshooting steps:"
+            print_status "1. Verify the image exists: https://github.com/${GITHUB_ORG}/github-smart/packages"
+            print_status "2. Check token permissions: https://github.com/settings/tokens"
+            print_status "3. Ensure token has 'read:packages' permission"
+            print_status "4. Verify organization name: $GITHUB_ORG"
+            print_status "5. Check if the GitHub Action has run and published the image"
+            
+            # Try to get more specific error information
+            print_status "Attempting to check registry access..."
+            if curl -s -H "Authorization: Bearer $GITHUB_TOKEN" "https://ghcr.io/v2/" >/dev/null 2>&1; then
+                print_success "Registry access confirmed"
+            else
+                print_error "Registry access denied - check token permissions"
+            fi
             exit 1
         fi
     else
         print_error "Failed to login to GitHub Container Registry"
-        print_status "Please check your GitHub token and organization name"
+        print_status "Common issues and solutions:"
+        print_status "1. Token permissions: Ensure token has 'read:packages' permission"
+        print_status "2. Token format: Should start with 'ghp_' or 'gho_'"
+        print_status "3. Organization: Verify '$GITHUB_ORG' is correct"
+        print_status "4. Network: Check internet connection and firewall settings"
+        print_status "5. Docker: Ensure Docker is running and accessible"
+        
+        # Provide specific troubleshooting commands
+        print_status "Debug commands:"
+        print_status "  - Test token: curl -H 'Authorization: Bearer $GITHUB_TOKEN' https://api.github.com/user"
+        print_status "  - Check packages: curl -H 'Authorization: Bearer $GITHUB_TOKEN' https://api.github.com/user/packages"
         exit 1
     fi
 }
@@ -273,6 +326,9 @@ main() {
     
     # Validate inputs
     validate_inputs
+    
+    # Test GitHub token
+    test_github_token
     
     # Create data directory
     create_data_dir
