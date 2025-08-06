@@ -32,27 +32,29 @@ A production-ready PHP-based web application for managing and tracking GitHub is
 
 ### 🐳 Production Deployment (Recommended)
 
-#### Quick Start with Pre-built Image
+#### Quick Start with Docker
 
-1. **Download deployment files**
+1. **One-Click Installation**
    ```bash
-   # Download the latest release artifacts from GitHub
-   # Or use the deployment script to fetch from GitHub Container Registry
+   # Download and run the installer
+   curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash -s -- -o evolvus -t YOUR_GITHUB_TOKEN
    ```
 
-2. **Setup environment**
+2. **Manual Installation**
    ```bash
-   # Copy the environment template
-   cp docker.env.example docker.env
+   # Download the deployment script
+   curl -O https://raw.githubusercontent.com/evolvus/github-smart/main/deploy.sh
+   chmod +x deploy.sh
    
-   # Edit with your production settings
-   nano docker.env
+   # Run with your GitHub credentials
+   ./deploy.sh -o evolvus -t YOUR_GITHUB_TOKEN
    ```
 
-3. **Deploy**
+3. **Using Environment Variables**
    ```bash
-   # Run the deployment script
-   ./scripts/deploy-production.sh deploy
+   export GITHUB_ORG="evolvus"
+   export GITHUB_TOKEN="your-github-token"
+   curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash
    ```
 
 #### Build from Source
@@ -61,18 +63,17 @@ A production-ready PHP-based web application for managing and tracking GitHub is
    ```bash
    git clone <repository-url>
    cd github-smart
-   ./scripts/deploy-production.sh setup
    ```
 
-2. **Configure environment**
+2. **Build Docker image**
    ```bash
-   # Edit docker.env with your settings
-   nano docker.env
+   docker build -t ghcr.io/evolvus/github-smart:latest .
    ```
 
-3. **Deploy**
+3. **Push to GitHub Packages**
    ```bash
-   ./scripts/deploy-production.sh deploy
+   echo $GITHUB_TOKEN | docker login ghcr.io -u evolvus --password-stdin
+   docker push ghcr.io/evolvus/github-smart:latest
    ```
 
 ### 🖥️ Development Setup
