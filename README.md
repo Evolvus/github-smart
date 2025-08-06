@@ -71,20 +71,14 @@ This method sets up a complete production environment with both the application 
 
 #### Option 2: Single Container Deployment
 
-This method uses the deploy.sh script for a simpler single-container setup.
+This method uses the deploy.sh script for a simpler single-container setup that pulls the Docker image from GitHub Packages.
 
-1. **One-Click Installation**
-   ```bash
-   # Download and run the installer
-   curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash -s -- -o YOUR_ORG -t YOUR_GITHUB_TOKEN
-   ```
+1. **Prerequisites**
+   - Ensure you have access to the GitHub Packages repository
+   - Your GitHub Personal Access Token has `read:packages` permission
 
-2. **Manual Installation**
+2. **Deploy using the script**
    ```bash
-   # Download the deployment script
-   curl -O https://raw.githubusercontent.com/evolvus/github-smart/main/deploy.sh
-   chmod +x deploy.sh
-   
    # Run with your GitHub credentials
    ./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN
    ```
@@ -93,8 +87,66 @@ This method uses the deploy.sh script for a simpler single-container setup.
    ```bash
    export GITHUB_ORG="your_organization"
    export GITHUB_TOKEN="your-github-token"
-   curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash
+   ./deploy.sh
    ```
+
+4. **Interactive mode**
+   ```bash
+   # The script will prompt for credentials if not provided
+   ./deploy.sh
+   ```
+
+5. **Custom options**
+   ```bash
+   # Specify custom port, container name, and image tag
+   ./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN -p 9090 -n my-github-smart -i v1.0.0
+   ```
+
+### Deployment Script Features
+
+The `deploy.sh` script provides a one-touch deployment experience:
+
+- **Automatic Environment Setup**: Creates `docker.env` file with all necessary configuration
+- **Docker Image Management**: Pulls images from GitHub Packages registry
+- **Container Management**: Stops and removes existing containers before deployment
+- **Health Checks**: Verifies container startup and provides status information
+- **Flexible Configuration**: Supports command-line arguments, environment variables, and interactive prompts
+- **Error Handling**: Comprehensive error checking and user-friendly messages
+- **Data Persistence**: Automatically creates and mounts data directory
+
+## 🔄 CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+The repository includes a GitHub Actions workflow that automatically builds and deploys Docker images to GitHub Packages:
+
+- **Trigger**: Runs on pushes to `main`/`master` branches, pull requests, and releases
+- **Registry**: GitHub Container Registry (ghcr.io)
+- **Image**: `ghcr.io/{organization}/github-smart:{tag}`
+- **Platforms**: Linux AMD64 and ARM64
+- **Caching**: Uses GitHub Actions cache for faster builds
+
+The workflow automatically:
+1. Sets up Docker Buildx for multi-platform builds
+2. Logs in to GitHub Container Registry
+3. Extracts metadata and creates appropriate tags
+4. Builds and pushes the Docker image
+5. Outputs image information for deployment
+
+### Manual Build and Deploy
+
+If you need to build and deploy manually:
+
+```bash
+# Build the Docker image
+docker build -t ghcr.io/your-org/github-smart:latest .
+
+# Login to GitHub Container Registry
+echo "your-token" | docker login ghcr.io -u your-username --password-stdin
+
+# Push the image
+docker push ghcr.io/your-org/github-smart:latest
+```
 
 #### Build from Source
 

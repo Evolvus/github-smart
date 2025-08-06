@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # GitHub Smart App Deployment Script
-# This script downloads and sets up the GitHub Smart application using Docker
+# This script pulls and deploys the GitHub Smart application using Docker
 
 set -e
 
@@ -15,11 +15,10 @@ NC='\033[0m' # No Color
 # Default values
 GITHUB_ORG=""
 GITHUB_TOKEN=""
-DOCKER_IMAGE=""
 CONTAINER_NAME="github-smart"
 PORT="8080"
 DATA_DIR="./data"
-BUILD_LOCAL=false
+IMAGE_TAG="latest"
 
 # Function to print colored output
 print_status() {
@@ -59,7 +58,7 @@ check_docker() {
     print_success "Docker is installed and running"
 }
 
-# Function to get user input
+# Function to get user input if not provided
 get_user_input() {
     if [ -z "$GITHUB_ORG" ]; then
         echo -n "Enter your GitHub organization/username: "
@@ -70,22 +69,6 @@ get_user_input() {
         echo -n "Enter your GitHub Personal Access Token: "
         read -rs GITHUB_TOKEN
         echo
-    fi
-
-    if [ -z "$DOCKER_IMAGE" ]; then
-        DOCKER_IMAGE="ghcr.io/evolvus/github-smart:latest"
-    fi
-}
-
-# Function to build image locally
-build_image_locally() {
-    print_status "Building Docker image locally..."
-    if docker build -t "$DOCKER_IMAGE" .; then
-        print_success "Docker image built successfully"
-        return 0
-    else
-        print_error "Failed to build Docker image"
-        exit 1
     fi
 }
 
@@ -98,11 +81,6 @@ validate_inputs() {
 
     if [ -z "$GITHUB_TOKEN" ]; then
         print_error "GitHub Personal Access Token is required"
-        exit 1
-    fi
-
-    if [ -z "$DOCKER_IMAGE" ]; then
-        print_error "Docker image is required"
         exit 1
     fi
 }
@@ -124,54 +102,67 @@ cleanup_existing() {
     fi
 }
 
-# Function to pull Docker image
+# Function to login to GitHub Container Registry and pull image
 pull_image() {
-    # Check if image exists locally first
-    if docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^${DOCKER_IMAGE}$"; then
-        print_status "Using local Docker image: $DOCKER_IMAGE"
-        return 0
-    fi
+    local image_name="ghcr.io/${GITHUB_ORG}/github-smart:${IMAGE_TAG}"
     
-    # If build-local flag is set, build locally
-    if [ "$BUILD_LOCAL" = true ]; then
-        print_status "Building Docker image locally as requested..."
-        build_image_locally
-        return 0
-    fi
-    
-    # Only try to pull from registry if image doesn't exist locally
-    print_status "Local image not found, attempting to pull from GitHub Container Registry..."
     print_status "Logging in to GitHub Container Registry..."
     if echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ORG" --password-stdin; then
-        print_status "Pulling Docker image: $DOCKER_IMAGE"
-        if docker pull "$DOCKER_IMAGE"; then
+        print_success "Successfully logged in to GitHub Container Registry"
+        
+        print_status "Pulling Docker image: $image_name"
+        if docker pull "$image_name"; then
             print_success "Docker image pulled successfully"
         else
-            print_warning "Failed to pull image from registry"
-            print_status "Would you like to build the image locally? (y/n)"
-            read -r response
-            if [[ "$response" =~ ^[Yy]$ ]]; then
-                build_image_locally
-            else
-                print_error "Cannot proceed without Docker image"
-                exit 1
-            fi
+            print_error "Failed to pull image from registry"
+            print_status "Please ensure:"
+            print_status "1. The image exists in your GitHub Packages"
+            print_status "2. Your token has the necessary permissions"
+            print_status "3. The organization name is correct"
+            exit 1
         fi
     else
         print_error "Failed to login to GitHub Container Registry"
-        print_status "Would you like to build the image locally? (y/n)"
-        read -r response
-        if [[ "$response" =~ ^[Yy]$ ]]; then
-            build_image_locally
-        else
-            print_error "Cannot proceed without Docker image"
-            exit 1
-        fi
+        print_status "Please check your GitHub token and organization name"
+        exit 1
     fi
+}
+
+# Function to create docker.env file
+create_docker_env() {
+    local env_file="docker.env"
+    print_status "Creating $env_file file..."
+    
+    cat > "$env_file" << EOF
+# GitHub Configuration
+GITHUB_ORG=$GITHUB_ORG
+GITHUB_TOKEN=$GITHUB_TOKEN
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=github_smart
+DB_USER=root
+DB_PASSWORD=
+
+# Application Configuration
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://localhost:$PORT
+
+# Docker Configuration
+CONTAINER_NAME=$CONTAINER_NAME
+PORT=$PORT
+DATA_DIR=$DATA_DIR
+EOF
+
+    print_success "Created $env_file file with configuration"
 }
 
 # Function to run container
 run_container() {
+    local image_name="ghcr.io/${GITHUB_ORG}/github-smart:${IMAGE_TAG}"
+    
     print_status "Starting container: $CONTAINER_NAME"
     
     docker run -d \
@@ -181,7 +172,8 @@ run_container() {
         -v "$(pwd)/$DATA_DIR:/var/www/html/data" \
         -e GITHUB_ORG="$GITHUB_ORG" \
         -e GITHUB_TOKEN="$GITHUB_TOKEN" \
-        "$DOCKER_IMAGE"
+        --env-file docker.env \
+        "$image_name"
 
     if [ $? -eq 0 ]; then
         print_success "Container started successfully"
@@ -215,21 +207,19 @@ show_usage() {
     echo "Options:"
     echo "  -o, --org ORGANIZATION    GitHub organization/username"
     echo "  -t, --token TOKEN         GitHub Personal Access Token"
-    echo "  -i, --image IMAGE         Docker image (default: ghcr.io/evolvus/github-smart:latest)"
     echo "  -p, --port PORT           Port to expose (default: 8080)"
     echo "  -n, --name NAME           Container name (default: github-smart)"
     echo "  -d, --data-dir DIR        Data directory (default: ./data)"
-    echo "  -b, --build-local         Build Docker image locally instead of pulling"
+    echo "  -i, --image-tag TAG       Docker image tag (default: latest)"
     echo "  -h, --help                Show this help message"
     echo
     echo "Environment variables:"
     echo "  GITHUB_ORG               GitHub organization/username"
     echo "  GITHUB_TOKEN             GitHub Personal Access Token"
-    echo "  DOCKER_IMAGE             Docker image"
     echo
-      echo "Examples:"
-  echo "  $0 -o syneca -t ghp_xxxxxxxx"
-  echo "  GITHUB_ORG=syneca GITHUB_TOKEN=ghp_xxxxxxxx $0"
+    echo "Examples:"
+    echo "  $0 -o syneca -t ghp_xxxxxxxx"
+    echo "  GITHUB_ORG=syneca GITHUB_TOKEN=ghp_xxxxxxxx $0"
 }
 
 # Parse command line arguments
@@ -241,10 +231,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--token)
             GITHUB_TOKEN="$2"
-            shift 2
-            ;;
-        -i|--image)
-            DOCKER_IMAGE="$2"
             shift 2
             ;;
         -p|--port)
@@ -259,9 +245,9 @@ while [[ $# -gt 0 ]]; do
             DATA_DIR="$2"
             shift 2
             ;;
-        -b|--build-local)
-            BUILD_LOCAL=true
-            shift
+        -i|--image-tag)
+            IMAGE_TAG="$2"
+            shift 2
             ;;
         -h|--help)
             show_usage
@@ -296,6 +282,9 @@ main() {
     
     # Pull Docker image
     pull_image
+    
+    # Create docker.env file
+    create_docker_env
     
     # Run container
     run_container
