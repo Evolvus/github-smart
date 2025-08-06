@@ -32,12 +32,51 @@ A production-ready PHP-based web application for managing and tracking GitHub is
 
 ### 🐳 Production Deployment (Recommended)
 
-#### Quick Start with Docker
+#### Option 1: Docker Compose (Recommended for Production)
+
+This method sets up a complete production environment with both the application and MySQL database.
+
+1. **Clone and setup**
+   ```bash
+   git clone <repository-url>
+   cd github-smart
+   ```
+
+2. **Configure environment**
+   ```bash
+   # Copy and edit the environment file
+   cp docker.env.example docker.env
+   nano docker.env
+   ```
+
+3. **Update configuration in docker.env:**
+   ```env
+   # Replace these values with your actual credentials
+   GITHUB_TOKEN=your_github_token_here
+   GITHUB_ORG=your_organization_name
+   
+   # Generate secure passwords (optional - defaults provided)
+   MYSQL_ROOT_PASSWORD=your_secure_root_password_here
+   MYSQL_PASSWORD=your_secure_password_here
+   ```
+
+4. **Deploy with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+5. **Access the application**
+   - Application: http://localhost:8081
+   - Database: localhost:3306
+
+#### Option 2: Single Container Deployment
+
+This method uses the deploy.sh script for a simpler single-container setup.
 
 1. **One-Click Installation**
    ```bash
    # Download and run the installer
-   curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash -s -- -o evolvus -t YOUR_GITHUB_TOKEN
+   curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash -s -- -o YOUR_ORG -t YOUR_GITHUB_TOKEN
    ```
 
 2. **Manual Installation**
@@ -47,12 +86,12 @@ A production-ready PHP-based web application for managing and tracking GitHub is
    chmod +x deploy.sh
    
    # Run with your GitHub credentials
-   ./deploy.sh -o evolvus -t YOUR_GITHUB_TOKEN
+   ./deploy.sh -o YOUR_ORG -t YOUR_GITHUB_TOKEN
    ```
 
 3. **Using Environment Variables**
    ```bash
-   export GITHUB_ORG="evolvus"
+   export GITHUB_ORG="your_organization"
    export GITHUB_TOKEN="your-github-token"
    curl -fsSL https://raw.githubusercontent.com/evolvus/github-smart/main/install.sh | bash
    ```
@@ -127,17 +166,34 @@ php -S localhost:8000 -t public/
 
 ## 🔧 Configuration
 
+### Deployment Methods Comparison
+
+| Feature | Docker Compose | Single Container (deploy.sh) |
+|---------|----------------|------------------------------|
+| **Database** | MySQL included | External database required |
+| **Port** | 8081 | 8080 (configurable) |
+| **Environment** | docker.env file | Direct environment variables |
+| **Complexity** | Multi-container | Single container |
+| **Production Ready** | ✅ Yes | ⚠️ Requires external DB |
+| **Development** | ✅ Yes | ✅ Yes |
+
 ### Environment Files
 
 The application uses different environment files for different setups:
 
-#### For Production Deployment
+#### For Docker Compose (Recommended)
 ```bash
 # Copy the example file
 cp docker.env.example docker.env
 
 # Edit with your settings
 nano docker.env
+```
+
+#### For Single Container (deploy.sh)
+```bash
+# Environment variables are passed directly to the container
+# No separate environment file needed
 ```
 
 #### For Development Setup
@@ -309,40 +365,50 @@ curl -X POST http://localhost:8000/api/getGHIssues.php
 
 ## 🐳 Docker Commands
 
-### Production Deployment
+### Docker Compose (Recommended for Production)
 ```bash
-# Deploy application
-./scripts/deploy-production.sh deploy
-
-# Check status
-./scripts/deploy-production.sh status
-
-# View logs
-./scripts/deploy-production.sh logs
-
-# Stop application
-./scripts/deploy-production.sh stop
-
-# Restart application
-./scripts/deploy-production.sh restart
-```
-
-### Container Management
-```bash
-# Start containers
+# Start all services
 docker-compose up -d
 
-# Stop containers
+# Stop all services
 docker-compose down
 
-# Restart containers
+# Restart all services
 docker-compose restart
 
-# Rebuild containers
+# Rebuild and start
 docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f app
+docker-compose logs -f mysql
+
+# Check status
+docker-compose ps
 ```
 
-### Access Containers
+### Single Container (deploy.sh)
+```bash
+# Start container
+./deploy.sh -o YOUR_ORG -t YOUR_TOKEN
+
+# Stop container
+docker stop github-smart
+
+# Remove container
+docker rm github-smart
+
+# View logs
+docker logs github-smart
+
+# Check status
+docker ps | grep github-smart
+```
+
+### Access Containers (Docker Compose)
 ```bash
 # PHP/Apache container
 docker-compose exec app bash
@@ -351,13 +417,22 @@ docker-compose exec app bash
 docker-compose exec mysql mysql -u root -p
 ```
 
-### Database Operations
+### Database Operations (Docker Compose)
 ```bash
 # Access MySQL
 docker-compose exec mysql mysql -u root -p project_management
 
 # Import data
 docker-compose exec mysql mysql -u root -p project_management < create_tables.sql
+```
+
+### Access Single Container (deploy.sh)
+```bash
+# Access the container
+docker exec -it github-smart bash
+
+# Note: Single container deployment doesn't include MySQL
+# You'll need to connect to an external database or use SQLite
 ```
 
 ## 📊 Monitoring
