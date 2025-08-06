@@ -113,6 +113,12 @@ cleanup_existing() {
 
 # Function to pull Docker image
 pull_image() {
+    # Check if image exists locally first
+    if docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^${DOCKER_IMAGE}$"; then
+        print_status "Using local Docker image: $DOCKER_IMAGE"
+        return 0
+    fi
+    
     print_status "Logging in to GitHub Container Registry..."
     echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ORG" --password-stdin
 
@@ -177,8 +183,8 @@ show_usage() {
     echo "  DOCKER_IMAGE             Docker image"
     echo
       echo "Examples:"
-  echo "  $0 -o evolvus -t ghp_xxxxxxxx"
-  echo "  GITHUB_ORG=evolvus GITHUB_TOKEN=ghp_xxxxxxxx $0"
+  echo "  $0 -o syneca -t ghp_xxxxxxxx"
+  echo "  GITHUB_ORG=syneca GITHUB_TOKEN=ghp_xxxxxxxx $0"
 }
 
 # Parse command line arguments
