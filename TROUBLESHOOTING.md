@@ -4,24 +4,23 @@
 
 ### 1. "denied: denied" Error from ghcr.io
 
-This error occurs when Docker cannot authenticate with the GitHub Container Registry. Here are the most common causes and solutions:
+This error occurs when Docker cannot access the GitHub Container Registry. Since the package is public, this is typically a network or connectivity issue.
 
-#### **Token Permissions**
-Ensure your GitHub Personal Access Token has the correct permissions:
-1. Go to https://github.com/settings/tokens
-2. Create a new token or edit existing one
-3. **Required scopes:**
-   - `read:packages` - to pull images from GitHub Packages
-   - `repo` - if the package is in a private repository
+#### **Common Causes**
+1. **Network Connectivity**: Check your internet connection
+2. **Firewall Settings**: Ensure Docker can access external registries
+3. **Docker Configuration**: Verify Docker is running properly
+4. **Registry Access**: The registry might be temporarily unavailable
 
 #### **Token Format**
 - GitHub tokens should start with `ghp_` (Personal Access Token) or `gho_` (GitHub App token)
 - Example: `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+- **Note**: The token is used by the application to access GitHub API data, not for pulling the Docker image
 
 #### **Organization/Repository Access**
-- Verify you have access to the GitHub organization/repository
-- Check if the Docker image exists in the packages section
+- Verify the Docker image exists in the packages section
 - Ensure the GitHub Action has run and published the image
+- Check if the package is set to public visibility
 
 #### **Network/Firewall Issues**
 - Check your internet connection
@@ -41,11 +40,11 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://api.github.com/user/packages
 
 #### **Test Docker Registry Access**
 ```bash
-# Try to login manually
-echo "YOUR_TOKEN" | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+# Test basic Docker connectivity
+docker pull hello-world
 
-# Check if login was successful
-docker login ghcr.io
+# Test GitHub Container Registry access
+docker pull ghcr.io/YOUR_ORG/github-smart:latest
 ```
 
 #### **Check Image Existence**
@@ -86,9 +85,9 @@ docker-compose up -d
 ### 4. Common Error Messages
 
 #### **"unauthorized: authentication required"**
-- Token is invalid or expired
-- Token lacks required permissions
-- Organization name is incorrect
+- This error should not occur for public packages
+- Check if the package is actually public
+- Verify the image exists in the registry
 
 #### **"manifest unknown"**
 - Image doesn't exist in the registry
@@ -123,7 +122,23 @@ If you're still experiencing issues:
    - Ensure the package is not private if you're trying to access it from outside the organization
    - Or ensure your token has access to private packages
 
-### 6. Environment Variables
+### 6. Token Usage Clarification
+
+**Important**: The GitHub Personal Access Token is used by the application to:
+- Fetch issues and data from GitHub repositories
+- Access GitHub API endpoints
+- Retrieve repository information
+
+**The token is NOT used for:**
+- Pulling the Docker image (public package)
+- Authenticating with GitHub Container Registry
+
+**Required Token Permissions:**
+- `repo` - to access repository data and issues
+- `read:org` - if accessing organization repositories
+- `read:user` - to access user information
+
+### 7. Environment Variables
 
 You can also set environment variables for debugging:
 ```bash
