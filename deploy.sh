@@ -55,7 +55,13 @@ check_docker() {
         exit 1
     fi
 
-    print_success "Docker is installed and running"
+    if ! command_exists docker-compose; then
+        print_error "Docker Compose is not installed. Please install Docker Compose first."
+        print_status "Visit https://docs.docker.com/compose/install/ for installation instructions."
+        exit 1
+    fi
+
+    print_success "Docker and Docker Compose are installed and running"
 }
 
 # Function to get user input if not provided
@@ -116,8 +122,14 @@ create_data_dir() {
     fi
 }
 
-# Function to stop and remove existing container
+# Function to stop and remove existing containers
 cleanup_existing() {
+    if docker-compose ps | grep -q "Up"; then
+        print_status "Stopping existing application containers"
+        docker-compose down || true
+    fi
+    
+    # Also check for any standalone containers with our name
     if docker ps -a --format "table {{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
         print_status "Stopping existing container: $CONTAINER_NAME"
         docker stop "$CONTAINER_NAME" || true
@@ -163,22 +175,39 @@ create_docker_env() {
     local env_file="docker.env"
     print_status "Creating $env_file file..."
     
+    # Generate secure passwords
+    local mysql_root_password="github_smart_root_$(date +%s)"
+    local mysql_password="github_smart_$(date +%s)"
+    
     cat > "$env_file" << EOF
+# Application Configuration
+APP_NAME=GitHub Smart
+APP_ENV=production
+APP_DEBUG=false
+
+# Database Configuration
+DB_HOST=mysql
+DB_PORT=3306
+DB_NAME=project_management
+DB_USER=github_smart_user
+DB_PASSWORD=$mysql_password
+
+# MySQL Configuration (for docker-compose)
+MYSQL_ROOT_PASSWORD=$mysql_root_password
+MYSQL_DATABASE=project_management
+MYSQL_USER=github_smart_user
+MYSQL_PASSWORD=$mysql_password
+
 # GitHub Configuration
 GITHUB_ORG=$GITHUB_ORG
 GITHUB_TOKEN=$GITHUB_TOKEN
 
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=github_smart
-DB_USER=root
-DB_PASSWORD=
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FILE=app.log
 
-# Application Configuration
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=http://localhost:$PORT
+# Security Configuration
+APP_KEY=github_smart_$(openssl rand -hex 16)
 
 # Docker Configuration
 CONTAINER_NAME=$CONTAINER_NAME
@@ -187,47 +216,74 @@ DATA_DIR=$DATA_DIR
 EOF
 
     print_success "Created $env_file file with configuration"
+    print_status "MySQL root password: $mysql_root_password"
+    print_status "MySQL user password: $mysql_password"
 }
 
-# Function to run container
+# Function to run container with docker-compose
 run_container() {
-    # The Docker image is published to the repository owner's organization
-    local docker_org="evolvus"
-    local image_name="ghcr.io/${docker_org}/github-smart:${IMAGE_TAG}"
+    print_status "Starting application with Docker Compose (includes MySQL)"
     
-    print_status "Starting container: $CONTAINER_NAME"
-    
-    docker run -d \
-        --name "$CONTAINER_NAME" \
-        --restart unless-stopped \
-        -p "$PORT:8080" \
-        -v "$(pwd)/$DATA_DIR:/var/www/html/data" \
-        -e GITHUB_ORG="$GITHUB_ORG" \
-        -e GITHUB_TOKEN="$GITHUB_TOKEN" \
-        --env-file docker.env \
-        "$image_name"
+    # Create docker-compose override file with our settings
+    cat > docker-compose.override.yml << EOF
+version: '3.8'
 
-    if [ $? -eq 0 ]; then
-        print_success "Container started successfully"
+services:
+  app:
+    ports:
+      - "$PORT:8080"
+    environment:
+      - GITHUB_ORG=$GITHUB_ORG
+      - GITHUB_TOKEN=$GITHUB_TOKEN
+    env_file:
+      - docker.env
+    volumes:
+      - ./$DATA_DIR:/var/www/html/data
+
+  mysql:
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-github_smart_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-project_management}
+      MYSQL_USER: ${MYSQL_USER:-github_smart_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-github_smart_password}
+EOF
+
+    # Start the services
+    if docker-compose up -d; then
+        print_success "Application started successfully with MySQL"
     else
-        print_error "Failed to start container"
+        print_error "Failed to start application"
         exit 1
     fi
 }
 
 # Function to check container status
 check_status() {
-    print_status "Checking container status..."
-    sleep 5
+    print_status "Checking application status..."
+    sleep 10
     
-    if docker ps --format "table {{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
-        print_success "Container is running"
+    # Check if both app and mysql containers are running
+    if docker-compose ps | grep -q "Up"; then
+        print_success "Application is running with MySQL"
         print_status "Application is available at: http://localhost:$PORT"
-        print_status "Container logs: docker logs $CONTAINER_NAME"
-        print_status "Stop container: docker stop $CONTAINER_NAME"
+        print_status "MySQL is available on localhost:3306"
+        print_status "View logs: docker-compose logs -f"
+        print_status "Stop application: docker-compose down"
+        
+        # Wait a bit more for MySQL to be fully ready
+        print_status "Waiting for MySQL to be fully ready..."
+        sleep 10
+        
+        # Check if we can connect to the application
+        if curl -s "http://localhost:$PORT" >/dev/null 2>&1; then
+            print_success "Application is responding to requests"
+        else
+            print_warning "Application may still be starting up"
+            print_status "Please wait a moment and try accessing: http://localhost:$PORT"
+        fi
     else
-        print_error "Container failed to start"
-        docker logs "$CONTAINER_NAME" || true
+        print_error "Application failed to start"
+        docker-compose logs || true
         exit 1
     fi
 }
