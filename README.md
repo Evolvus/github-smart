@@ -39,6 +39,9 @@ cd github-smart
 # Setup environment files (automated)
 ./setup-env.sh
 
+# Install dependencies locally (recommended to avoid Docker build issues)
+composer install
+
 # Edit environment files with your settings
 nano docker.env
 nano .env
@@ -59,10 +62,19 @@ docker-compose up --build -d
 # Note: Document root is now /var/www/html/public/
 ```
 
+#### Alternative: Use start-docker.sh script
+```bash
+# Use the provided startup script
+./start-docker.sh
+```
+
 #### Troubleshooting Docker Issues
 If you encounter vendor directory or autoloader issues:
 
 ```bash
+# First, ensure dependencies are installed locally
+composer install
+
 # Use the troubleshooting script
 ./scripts/docker-setup.sh full-setup
 

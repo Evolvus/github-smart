@@ -20,20 +20,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     curl \
     xml
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy composer files first for better caching
-COPY composer.json composer.lock ./
-
-# Fix Git ownership issue and install dependencies
-RUN git config --global --add safe.directory /var/www/html \
-    && composer install --no-dev --no-interaction --optimize-autoloader
-
-# Copy application files
+# Copy application files (including vendor directory)
 COPY . .
 
 # Set permissions

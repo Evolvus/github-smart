@@ -22,7 +22,7 @@ echo "🔍 Checking container status..."
 docker-compose ps
 
 echo ""
-echo "✅ Application should be running at: http://localhost:8080"
+echo "✅ Application should be running at: http://localhost:8081"
 echo "📊 MySQL is available at: localhost:3306"
 echo ""
 echo "📋 Useful commands:"
