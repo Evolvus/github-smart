@@ -1,0 +1,111 @@
+name: Test Application
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: test_project_management
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, zip, gd, curl
+        coverage: none
+
+    - name: Validate composer.json
+      run: composer validate --strict
+
+    - name: Get composer cache directory
+      id: composer-cache
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-php-
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
+
+    - name: Create test environment file
+      run: |
+        cp docker.env.example docker.env
+        echo "DB_HOST=127.0.0.1" >> docker.env
+        echo "DB_PORT=3306" >> docker.env
+        echo "DB_NAME=test_project_management" >> docker.env
+        echo "DB_USER=test_user" >> docker.env
+        echo "DB_PASSWORD=test_password" >> docker.env
+        echo "MYSQL_ROOT_PASSWORD=test_password" >> docker.env
+        echo "MYSQL_DATABASE=test_project_management" >> docker.env
+        echo "MYSQL_USER=test_user" >> docker.env
+        echo "MYSQL_PASSWORD=test_password" >> docker.env
+        echo "GITHUB_TOKEN=test_token" >> docker.env
+        echo "GITHUB_ORG=test_org" >> docker.env
+        echo "APP_ENV=testing" >> docker.env
+        echo "APP_DEBUG=true" >> docker.env
+
+    - name: Wait for MySQL
+      run: |
+        while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+          sleep 1
+        done
+
+    - name: Setup database
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u test_user -ptest_password test_project_management < create_tables.sql
+
+    - name: Run PHP syntax check
+      run: |
+        find . -name "*.php" -not -path "./vendor/*" -not -path "./node_modules/*" -exec php -l {} \;
+
+    - name: Run basic tests
+      run: |
+        # Test if the application can start
+        php -S localhost:8000 -t public/ &
+        sleep 5
+        
+        # Test basic endpoints
+        curl -f http://localhost:8000/ || exit 1
+        curl -f http://localhost:8000/projects.php || exit 1
+        
+        # Kill the test server
+        pkill -f "php -S"
+
+    - name: Run composer tests
+      run: composer test --no-interaction
+
+    - name: Check for security vulnerabilities
+      run: composer audit --format=json --no-interaction
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          logs/
+          *.log
+        retention-days: 7 
