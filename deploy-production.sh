@@ -86,16 +86,33 @@ LOG_FILE=app.log
 APP_KEY=$APP_KEY
 EOF
 
-# Create docker-compose.yml
+# Check for port conflicts
+echo -e "${YELLOW}🔍 Checking for port conflicts...${NC}"
+MYSQL_PORT=3306
+APP_PORT=80
+
+# Check if MySQL port is in use
+if lsof -Pi :$MYSQL_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Port $MYSQL_PORT is in use, switching to 3307${NC}"
+    MYSQL_PORT=3307
+fi
+
+# Check if app port is in use
+if lsof -Pi :$APP_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Port $APP_PORT is in use, switching to 8080${NC}"
+    APP_PORT=8080
+fi
+
+# Create docker-compose.yml with dynamic ports
 echo -e "${YELLOW}🐳 Creating Docker Compose configuration...${NC}"
-cat > docker-compose.yml << 'EOF'
+cat > docker-compose.yml << EOF
 version: '3.8'
 
 services:
   app:
     image: ghcr.io/evolvus/github-smart:latest
     ports:
-      - "80:8080"
+      - "$APP_PORT:8080"
     depends_on:
       mysql:
         condition: service_healthy
@@ -124,7 +141,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "$MYSQL_PORT:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
@@ -140,6 +157,10 @@ volumes:
   app_logs:
   app_data:
 EOF
+
+# Store port information for later use
+echo "APP_PORT=$APP_PORT" > .ports
+echo "MYSQL_PORT=$MYSQL_PORT" >> .ports
 
 # Pull Docker image
 echo -e "${YELLOW}📦 Pulling Docker image...${NC}"
@@ -225,7 +246,14 @@ else
     echo "   docker-compose restart"
 fi
 echo ""
-echo "2. Access your application at: http://localhost"
+# Load port information
+if [ -f .ports ]; then
+    source .ports
+    echo "2. Access your application at: http://localhost:$APP_PORT"
+    echo "   MySQL is available at localhost:$MYSQL_PORT"
+else
+    echo "2. Access your application at: http://localhost"
+fi
 echo ""
 echo -e "${YELLOW}📋 Useful commands:${NC}"
 echo "- Check status: docker-compose ps"
