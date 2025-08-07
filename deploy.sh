@@ -276,8 +276,12 @@ run_container() {
     # Download required files
     download_required_files
     
-    # Read the generated passwords from docker.env
+    # Read the generated passwords from docker.env and export them
     source docker.env
+    export MYSQL_ROOT_PASSWORD
+    export MYSQL_DATABASE
+    export MYSQL_USER
+    export MYSQL_PASSWORD
     
     # Create docker-compose override file with our settings
     cat > docker-compose.override.yml << EOF
@@ -294,8 +298,11 @@ services:
       - ./$DATA_DIR:/var/www/html/data
 
   mysql:
-    env_file:
-      - docker.env
+    environment:
+      MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+      MYSQL_DATABASE: $MYSQL_DATABASE
+      MYSQL_USER: $MYSQL_USER
+      MYSQL_PASSWORD: $MYSQL_PASSWORD
 EOF
 
     # Start the services
@@ -313,7 +320,7 @@ setup_database() {
     
     # Wait for MySQL to be ready
     print_status "Waiting for MySQL to be ready..."
-    sleep 15
+    sleep 20
     
     # Get the actual MySQL container name
     local mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
@@ -349,24 +356,43 @@ setup_database() {
             MYSQL_ROOT_PASSWORD="github_smart_root_$(date +%s)"
         fi
         
-        # Import database schema
-        print_status "Creating database tables..."
-        if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "source /tmp/create_tables.sql" 2>/dev/null; then
-            print_success "Database tables created successfully"
+        # Wait a bit more for MySQL to be fully ready
+        print_status "Waiting for MySQL to be fully ready..."
+        sleep 10
+        
+        # Try multiple times to create tables
+        local max_attempts=3
+        local attempt=1
+        
+        while [ $attempt -le $max_attempts ]; do
+            print_status "Attempt $attempt of $max_attempts to create database tables..."
             
-            # Verify tables were created
-            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
-                print_success "Database tables verified successfully"
+            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "source /tmp/create_tables.sql" 2>/dev/null; then
+                print_success "Database tables created successfully"
+                
+                # Verify tables were created
+                if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
+                    print_success "Database tables verified successfully"
+                    return 0
+                else
+                    print_warning "Database tables may not have been created properly"
+                fi
             else
-                print_warning "Database tables may not have been created properly"
+                print_warning "Attempt $attempt failed"
+                if [ $attempt -lt $max_attempts ]; then
+                    print_status "Waiting before retry..."
+                    sleep 10
+                fi
             fi
-        else
-            print_warning "Could not create database tables automatically"
-            print_status "You may need to create tables manually or they will be created on first use"
-            print_status "Manual setup commands:"
-            print_status "  docker cp create_tables.sql ${mysql_container}:/tmp/"
-            print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management -e \"source /tmp/create_tables.sql\""
-        fi
+            
+            attempt=$((attempt + 1))
+        done
+        
+        print_warning "Could not create database tables automatically after $max_attempts attempts"
+        print_status "You may need to create tables manually or they will be created on first use"
+        print_status "Manual setup commands:"
+        print_status "  docker cp create_tables.sql ${mysql_container}:/tmp/"
+        print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management -e \"source /tmp/create_tables.sql\""
     else
         print_warning "create_tables.sql not found - database tables will be created on first use"
     fi
