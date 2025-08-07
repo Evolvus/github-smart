@@ -271,7 +271,7 @@ function insertAuditData($pdo, $action, $startTime, $endTime) {
         return true; // Return true if insertion was successful
     } catch (PDOException $e) {
         // Handle any database errors
-        echo "Database Error: " . $e->getMessage();
+        write_log("Database Error: " . $e->getMessage());
         return false; // Return false if there was an error
     }
 }
