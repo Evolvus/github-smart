@@ -139,10 +139,10 @@ create_data_dir() {
 cleanup_existing() {
     print_status "Cleaning up existing containers..."
     
-    # Stop docker-compose services
+    # Stop docker-compose services and remove volumes to ensure clean MySQL setup
     if docker-compose ps | grep -q "Up"; then
         print_status "Stopping existing application containers"
-        docker-compose down || true
+        docker-compose down -v || true
     fi
     
     # Also check for any standalone containers with our name
@@ -358,7 +358,29 @@ setup_database() {
         
         # Wait a bit more for MySQL to be fully ready
         print_status "Waiting for MySQL to be fully ready..."
-        sleep 10
+        sleep 15
+        
+        # Wait for MySQL to be actually ready by checking connectivity
+        print_status "Waiting for MySQL to be accessible..."
+        local mysql_ready=false
+        local max_wait=60
+        local wait_time=0
+        
+        while [ $wait_time -lt $max_wait ] && [ "$mysql_ready" = false ]; do
+            if docker exec -i "${mysql_container}" mysqladmin ping -u root -p"${MYSQL_ROOT_PASSWORD}" --silent 2>/dev/null; then
+                mysql_ready=true
+                print_success "MySQL is ready"
+            else
+                print_status "Waiting for MySQL to be ready... ($((max_wait - wait_time))s remaining)"
+                sleep 5
+                wait_time=$((wait_time + 5))
+            fi
+        done
+        
+        if [ "$mysql_ready" = false ]; then
+            print_warning "MySQL did not become ready in time"
+            return 1
+        fi
         
         # Try multiple times to create tables
         local max_attempts=3
