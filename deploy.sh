@@ -294,11 +294,8 @@ services:
       - ./$DATA_DIR:/var/www/html/data
 
   mysql:
-    environment:
-      MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
-      MYSQL_DATABASE: $MYSQL_DATABASE
-      MYSQL_USER: $MYSQL_USER
-      MYSQL_PASSWORD: $MYSQL_PASSWORD
+    env_file:
+      - docker.env
 EOF
 
     # Start the services
