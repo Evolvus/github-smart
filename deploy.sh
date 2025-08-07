@@ -322,20 +322,38 @@ setup_database() {
     print_status "Waiting for MySQL to be ready..."
     sleep 20
     
-    # Get the actual MySQL container name
-    local mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
-    if [ -z "$mysql_container" ]; then
-        # Try alternative container naming
-        mysql_container=$(docker ps --format "{{.Names}}" | grep mysql | head -1)
-    fi
-    
-    if [ -z "$mysql_container" ]; then
-        print_warning "Could not find MySQL container"
-        print_status "Database tables will be created on first use"
-        return 1
-    fi
-    
-    print_status "Found MySQL container: $mysql_container"
+            # Get the actual MySQL container name with better detection
+        local mysql_container=""
+        
+        # Try docker-compose naming first
+        mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
+        
+        # If not found, try alternative naming patterns
+        if [ -z "$mysql_container" ]; then
+            mysql_container=$(docker ps --format "{{.Names}}" | grep mysql | head -1)
+        fi
+        
+        # If still not found, try by image name
+        if [ -z "$mysql_container" ]; then
+            mysql_container=$(docker ps --format "{{.Names}}" | grep -E "(mysql|mariadb)" | head -1)
+        fi
+        
+        # If still not found, try by port
+        if [ -z "$mysql_container" ]; then
+            mysql_container=$(docker ps --format "{{.Names}}" | xargs -I {} sh -c 'docker port {} 2>/dev/null | grep -q ":3306" && echo {}' | head -1)
+        fi
+        
+        if [ -z "$mysql_container" ]; then
+            print_warning "Could not find MySQL container"
+            print_status "Available containers:"
+            docker ps --format "{{.Names}}" | while read container; do
+                print_status "  - $container"
+            done
+            print_status "Database tables will be created on first use"
+            return 1
+        fi
+        
+        print_status "Found MySQL container: $mysql_container"
     
     # Copy SQL file to container
     if [ -f "create_tables.sql" ]; then
@@ -363,11 +381,11 @@ setup_database() {
         # Wait for MySQL to be actually ready by checking connectivity
         print_status "Waiting for MySQL to be accessible..."
         local mysql_ready=false
-        local max_wait=60
+        local max_wait=90
         local wait_time=0
         
         while [ $wait_time -lt $max_wait ] && [ "$mysql_ready" = false ]; do
-            if docker exec -i "${mysql_container}" mysqladmin ping -u root -p"${MYSQL_ROOT_PASSWORD}" --silent 2>/dev/null; then
+            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
                 mysql_ready=true
                 print_success "MySQL is ready"
             else
@@ -389,6 +407,31 @@ setup_database() {
         while [ $attempt -le $max_attempts ]; do
             print_status "Attempt $attempt of $max_attempts to create database tables..."
             
+            # First, verify we can connect to MySQL
+            if ! docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
+                print_warning "Cannot connect to MySQL with provided credentials"
+                print_status "Container: $mysql_container"
+                print_status "Password: $MYSQL_ROOT_PASSWORD"
+                if [ $attempt -lt $max_attempts ]; then
+                    print_status "Waiting before retry..."
+                    sleep 10
+                fi
+                attempt=$((attempt + 1))
+                continue
+            fi
+            
+            # Verify the database exists
+            if ! docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "USE project_management;" 2>/dev/null >/dev/null; then
+                print_warning "Database 'project_management' does not exist"
+                if [ $attempt -lt $max_attempts ]; then
+                    print_status "Waiting before retry..."
+                    sleep 10
+                fi
+                attempt=$((attempt + 1))
+                continue
+            fi
+            
+            # Try to create tables
             if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "source /tmp/create_tables.sql" 2>/dev/null; then
                 print_success "Database tables created successfully"
                 
@@ -400,7 +443,7 @@ setup_database() {
                     print_warning "Database tables may not have been created properly"
                 fi
             else
-                print_warning "Attempt $attempt failed"
+                print_warning "Attempt $attempt failed to create tables"
                 if [ $attempt -lt $max_attempts ]; then
                     print_status "Waiting before retry..."
                     sleep 10
