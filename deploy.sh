@@ -318,16 +318,57 @@ setup_database() {
     print_status "Waiting for MySQL to be ready..."
     sleep 15
     
+    # Get the actual MySQL container name
+    local mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
+    if [ -z "$mysql_container" ]; then
+        # Try alternative container naming
+        mysql_container=$(docker ps --format "{{.Names}}" | grep mysql | head -1)
+    fi
+    
+    if [ -z "$mysql_container" ]; then
+        print_warning "Could not find MySQL container"
+        print_status "Database tables will be created on first use"
+        return 1
+    fi
+    
+    print_status "Found MySQL container: $mysql_container"
+    
     # Copy SQL file to container
     if [ -f "create_tables.sql" ]; then
-        docker cp create_tables.sql github-smart-mysql-1:/tmp/ 2>/dev/null || true
+        print_status "Copying create_tables.sql to container..."
+        if docker cp create_tables.sql "${mysql_container}:/tmp/create_tables.sql" 2>/dev/null; then
+            print_success "SQL file copied to container"
+        else
+            print_warning "Failed to copy SQL file to container"
+            return 1
+        fi
+        
+        # Read MySQL credentials from docker.env
+        if [ -f "docker.env" ]; then
+            source docker.env
+            print_status "Using MySQL credentials from docker.env"
+        else
+            print_warning "docker.env not found, using default credentials"
+            MYSQL_ROOT_PASSWORD="github_smart_root_$(date +%s)"
+        fi
         
         # Import database schema
-        if docker-compose exec mysql bash -c "mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management < /tmp/create_tables.sql" 2>/dev/null; then
+        print_status "Creating database tables..."
+        if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "source /tmp/create_tables.sql" 2>/dev/null; then
             print_success "Database tables created successfully"
+            
+            # Verify tables were created
+            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
+                print_success "Database tables verified successfully"
+            else
+                print_warning "Database tables may not have been created properly"
+            fi
         else
             print_warning "Could not create database tables automatically"
             print_status "You may need to create tables manually or they will be created on first use"
+            print_status "Manual setup commands:"
+            print_status "  docker cp create_tables.sql ${mysql_container}:/tmp/"
+            print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management -e \"source /tmp/create_tables.sql\""
         fi
     else
         print_warning "create_tables.sql not found - database tables will be created on first use"
