@@ -2,7 +2,7 @@ services:
   app:
     image: ghcr.io/evolvus/github-smart:latest
     ports:
-      - "8081:8080"
+      - "8082:8080"
     depends_on:
       mysql:
         condition: service_healthy
@@ -10,6 +10,11 @@ services:
       - APACHE_DOCUMENT_ROOT=/var/www/html/public
       - APP_ENV=production
       - APP_DEBUG=false
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=project_management
+      - DB_USER=${MYSQL_USER:-github_smart_user}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
     env_file:
       - docker.env
     restart: unless-stopped
@@ -19,23 +24,28 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    volumes:
+      - ./data:/var/www/html/data
 
   mysql:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-project_management}
+      MYSQL_USER: ${MYSQL_USER:-github_smart_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./create_tables.sql:/docker-entrypoint-initdb.d/01-create-tables.sql:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       timeout: 20s
       retries: 10
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
 
 volumes:
   mysql_data: 

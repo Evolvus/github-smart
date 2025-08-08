@@ -1,181 +1,328 @@
-# GitHub Smart App Deployment Guide
+# GitHub Smart App - Deployment Guide
 
-This guide explains how to deploy the GitHub Smart application using Docker and GitHub Packages.
-
-## Prerequisites
-
-1. **Docker**: Make sure Docker is installed and running on your system
-   - [Docker Desktop](https://docs.docker.com/get-docker/) for Windows/Mac
-   - [Docker Engine](https://docs.docker.com/engine/install/) for Linux
-
-2. **GitHub Personal Access Token**: You need a GitHub token with the following permissions:
-   - `read:packages` - to pull Docker images from GitHub Packages
-   - `write:packages` - if you want to push images (for development)
+This guide provides comprehensive instructions for deploying the GitHub Smart App using Docker.
 
 ## Quick Deployment
 
-### Option 1: Using the Deployment Script
-
-1. Download the deployment script:
-   ```bash
-   curl -O https://raw.githubusercontent.com/evolvus/github-smart/main/deploy.sh
-   chmod +x deploy.sh
-   ```
-
-2. Run the deployment script:
-   ```bash
-   ./deploy.sh -o evolvus -t YOUR_GITHUB_TOKEN
-   ```
-
-### Option 2: Using Environment Variables
+For automatic deployment with your GitHub organization and token:
 
 ```bash
-export GITHUB_ORG="evolvus"
+rm -rf * && curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh | bash -s -- -o Syneca -t YOUR_GITHUB_TOKEN
+```
+
+## Prerequisites
+
+1. **Docker**: Install Docker Desktop or Docker Engine
+2. **Docker Compose**: Usually included with Docker Desktop
+3. **GitHub Token**: Personal Access Token with `repo` and `read:org` scopes
+4. **GitHub Organization**: Your GitHub organization or username
+
+## Manual Deployment Steps
+
+### 1. Clone or Download the Repository
+
+```bash
+git clone https://github.com/Evolvus/github-smart.git
+cd github-smart
+```
+
+### 2. Run the Deployment Script
+
+```bash
+./deploy.sh -o YOUR_ORG -t YOUR_TOKEN
+```
+
+Or set environment variables:
+
+```bash
+export GITHUB_ORG="your-organization"
 export GITHUB_TOKEN="your-github-token"
 ./deploy.sh
 ```
 
-### Option 3: Interactive Mode
+### 3. Verify Deployment
+
+The script will:
+- Check Docker installation
+- Validate GitHub token
+- Pull Docker images
+- Start containers with MySQL
+- Initialize database tables
+- Verify application accessibility
+
+## Database Setup
+
+The application uses MySQL 8.0 with automatic table creation. The database setup includes:
+
+- **gh_issues**: GitHub issues data
+- **gh_projects**: GitHub projects
+- **gh_issue_tags**: Issue tags and labels
+- **gh_pinned_issues**: Pinned issues for users
+- **gh_audit**: API operation tracking
+- **expense_perm_matrix**: Permission matrix
+- **crux_auth**: Authentication data
+
+### Automatic Database Initialization
+
+The deployment script automatically:
+1. Waits for MySQL container to be ready
+2. Creates database tables using `create_tables.sql`
+3. Verifies table creation
+4. Provides fallback initialization if needed
+
+### Manual Database Setup
+
+If automatic setup fails, run:
 
 ```bash
-./deploy.sh
-# The script will prompt you for GitHub org and token
+./scripts/init_database.sh
 ```
 
-## Configuration Options
+## Container Architecture
 
-The deployment script supports the following options:
+The application runs with two containers:
 
-- `-o, --org`: GitHub organization/username
-- `-t, --token`: GitHub Personal Access Token
-- `-i, --image`: Docker image (default: `ghcr.io/evolvus/github-smart:latest`)
-- `-p, --port`: Port to expose (default: 8080)
-- `-n, --name`: Container name (default: github-smart)
-- `-d, --data-dir`: Data directory (default: ./data)
-- `-b, --build-local`: Build Docker image locally instead of pulling
+### App Container
+- **Image**: `ghcr.io/evolvus/github-smart:latest`
+- **Port**: 8081 (external) → 8080 (internal)
+- **Environment**: PHP 8.1, Apache, Application code
 
-## Examples
+### MySQL Container
+- **Image**: `mysql:8.0`
+- **Port**: 3307 (external) → 3306 (internal)
+- **Database**: `project_management`
+- **User**: `github_smart_user`
+- **Volume**: Persistent MySQL data
+
+## Configuration
+
+### Environment Variables
+
+The deployment creates a `docker.env` file with:
 
 ```bash
-# Basic deployment
-./deploy.sh -o evolvus -t ghp_xxxxxxxx
+# Database Configuration
+DB_HOST=mysql
+DB_PORT=3306
+DB_NAME=project_management
+DB_USER=github_smart_user
+DB_PASSWORD=auto_generated
 
-# Custom port and container name
-./deploy.sh -o evolvus -t ghp_xxxxxxxx -p 9000 -n my-github-smart
+# MySQL Configuration
+MYSQL_ROOT_PASSWORD=auto_generated
+MYSQL_DATABASE=project_management
+MYSQL_USER=github_smart_user
+MYSQL_PASSWORD=auto_generated
 
-# Custom data directory
-./deploy.sh -o syneca -t ghp_xxxxxxxx -d /opt/github-smart-data
+# External MySQL Port: 3307
 
-# Build image locally
-./deploy.sh -o syneca -t ghp_xxxxxxxx -b
+# GitHub Configuration
+GITHUB_ORG=your_organization
+GITHUB_TOKEN=your_token
+
+# Application Configuration
+APP_ENV=production
+APP_DEBUG=false
 ```
 
-## What the Script Does
+### Docker Compose
 
-1. **Checks Docker**: Verifies Docker is installed and running
-2. **Validates Inputs**: Ensures required parameters are provided
-3. **Creates Data Directory**: Sets up persistent storage
-4. **Cleans Up**: Stops and removes any existing containers
-5. **Pulls/Builds Image**: Downloads the latest Docker image from GitHub Packages or builds locally
-6. **Runs Container**: Starts the application with proper configuration
-7. **Verifies Status**: Checks that the container is running properly
-
-## Container Management
-
-### View Logs
-```bash
-docker logs github-smart
-```
-
-### Stop Container
-```bash
-docker stop github-smart
-```
-
-### Remove Container
-```bash
-docker rm github-smart
-```
-
-### Restart Container
-```bash
-docker restart github-smart
-```
-
-## Accessing the Application
-
-Once deployed, the application will be available at:
-- **URL**: `http://localhost:8080` (or your custom port)
-- **Default Port**: 8080
+The `docker-compose.yml` includes:
+- Health checks for both containers
+- Automatic database initialization
+- Volume persistence
+- Environment variable injection
 
 ## Troubleshooting
 
-### Docker Not Running
+### Common Issues
+
+#### 1. Docker Not Running
 ```bash
-# Start Docker Desktop (Windows/Mac)
-# Or start Docker service (Linux)
-sudo systemctl start docker
+# Start Docker Desktop or Docker Engine
+docker info
 ```
 
-### Permission Issues
+#### 2. Port Already in Use
 ```bash
-# Add user to docker group (Linux)
-sudo usermod -aG docker $USER
-# Log out and log back in
+# Check what's using port 8081
+lsof -i :8081
+
+# Use different port
+./deploy.sh -o ORG -t TOKEN -p 8082
 ```
 
-### Container Fails to Start
+#### 3. Database Connection Issues
 ```bash
-# Check container logs
-docker logs github-smart
+# Check MySQL container
+docker-compose ps mysql
 
-# Check if port is already in use
-netstat -tulpn | grep :8080
+# View MySQL logs
+docker-compose logs mysql
+
+# Manual database setup
+./scripts/init_database.sh
 ```
 
-### GitHub Token Issues
-- Ensure your token has the correct permissions
-- Check if the token is expired
-- Verify the organization name is correct
-
-### GitHub Container Registry Access Issues
-If you encounter "denied: denied" errors when trying to pull from GitHub Container Registry:
+#### 4. GitHub Token Issues
 ```bash
-# Build the image locally instead
-./deploy.sh -o syneca -t YOUR_TOKEN -b
+# Test token manually
+curl -H "Authorization: Bearer YOUR_TOKEN" https://api.github.com/user
 
-# Or manually build and deploy
-docker build -t ghcr.io/evolvus/github-smart:latest .
-./deploy.sh -o syneca -t YOUR_TOKEN
+# Ensure token has required scopes:
+# - repo (for repository access)
+# - read:org (for organization access)
 ```
 
-## Development
+#### 5. Application Not Accessible
+```bash
+# Check container status
+docker-compose ps
 
-For developers who want to build and push their own images:
+# View application logs
+docker-compose logs app
 
-1. **Build Image**:
-   ```bash
-   docker build -t ghcr.io/YOUR_ORG/github-smart:latest .
-   ```
+# Restart containers
+docker-compose restart
+```
 
-2. **Push to GitHub Packages**:
-   ```bash
-   echo $GITHUB_TOKEN | docker login ghcr.io -u evolvus --password-stdin
-   docker push ghcr.io/evolvus/github-smart:latest
-   ```
+### Debugging Commands
 
-## Security Notes
+```bash
+# View all container logs
+docker-compose logs -f
 
-- Never commit GitHub tokens to version control
-- Use environment variables or secure secret management
-- Regularly rotate your GitHub Personal Access Tokens
-- Consider using GitHub Actions for automated deployments
+# Access MySQL container
+docker-compose exec mysql mysql -u root -p
+
+# Access application container
+docker-compose exec app bash
+
+# Check database tables
+docker-compose exec mysql mysql -u root -p project_management -e "SHOW TABLES;"
+```
+
+### Testing Deployment
+
+Run the test script to verify deployment:
+
+```bash
+./test_deployment.sh
+```
+
+This script will:
+1. Check Docker installation
+2. Validate GitHub token
+3. Test organization access
+4. Start containers
+5. Verify database setup
+6. Test application accessibility
+
+## Management Commands
+
+### Start Application
+```bash
+docker-compose up -d
+```
+
+### Stop Application
+```bash
+docker-compose down
+```
+
+### Restart Application
+```bash
+docker-compose restart
+```
+
+### View Logs
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f app
+docker-compose logs -f mysql
+```
+
+### Update Application
+```bash
+# Pull latest image
+docker-compose pull
+
+# Restart with new image
+docker-compose up -d
+```
+
+### Backup Database
+```bash
+docker-compose exec mysql mysqldump -u root -p project_management > backup.sql
+```
+
+### Restore Database
+```bash
+docker-compose exec -T mysql mysql -u root -p project_management < backup.sql
+```
+
+## Security Considerations
+
+1. **GitHub Token**: Store securely, rotate regularly
+2. **Database Passwords**: Auto-generated, stored in `docker.env`
+3. **Port Exposure**: Only port 8081 exposed externally
+4. **Container Isolation**: Each service runs in separate container
+
+## Performance Optimization
+
+### Resource Limits
+Add to `docker-compose.yml`:
+```yaml
+services:
+  app:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+  mysql:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+```
+
+### Database Optimization
+```sql
+-- Add indexes for better performance
+ALTER TABLE gh_issues ADD INDEX idx_created_at (created_at);
+ALTER TABLE gh_issues ADD INDEX idx_updated_at (updated_at);
+```
+
+## Monitoring
+
+### Health Checks
+- Application: HTTP endpoint check
+- MySQL: Database connectivity check
+
+### Log Monitoring
+```bash
+# Monitor application logs
+docker-compose logs -f app | grep ERROR
+
+# Monitor database logs
+docker-compose logs -f mysql | grep ERROR
+```
 
 ## Support
 
-If you encounter issues:
+For issues with deployment:
+1. Check the troubleshooting section above
+2. Run `./test_deployment.sh` for diagnostics
+3. View container logs for error details
+4. Ensure all prerequisites are met
 
-1. Check the container logs: `docker logs github-smart`
-2. Verify Docker is running: `docker info`
-3. Ensure your GitHub token has the correct permissions
-4. Check the [GitHub Smart documentation](https://github.com/evolvus/github-smart) for more details 
+## Version History
+
+- **v2.1**: Improved database initialization, better error handling
+- **v2.0**: Docker Compose integration, automatic setup
+- **v1.0**: Initial deployment script 

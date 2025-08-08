@@ -1,4 +1,7 @@
--- Create database if it doesn't exist
+-- Database initialization script for GitHub Smart App
+-- This script is automatically executed when the MySQL container starts
+
+-- Create database if it doesn't exist (should already exist from MYSQL_DATABASE env var)
 CREATE DATABASE IF NOT EXISTS project_management;
 USE project_management;
 
@@ -30,7 +33,7 @@ CREATE TABLE IF NOT EXISTS gh_issues (
     INDEX idx_gh_state (gh_state),
     INDEX idx_assigned_date (assigned_date),
     INDEX idx_gh_project (gh_project)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create gh_projects table
 CREATE TABLE IF NOT EXISTS gh_projects (
@@ -44,7 +47,7 @@ CREATE TABLE IF NOT EXISTS gh_projects (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_gh_id (gh_id),
     INDEX idx_title (title)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create gh_issue_tags table
 CREATE TABLE IF NOT EXISTS gh_issue_tags (
@@ -56,7 +59,7 @@ CREATE TABLE IF NOT EXISTS gh_issue_tags (
     INDEX idx_gh_node_id (gh_node_id),
     INDEX idx_tag (tag),
     FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create gh_pinned_issues table
 CREATE TABLE IF NOT EXISTS gh_pinned_issues (
@@ -71,7 +74,7 @@ CREATE TABLE IF NOT EXISTS gh_pinned_issues (
     INDEX idx_gh_node_id (gh_node_id),
     INDEX idx_bucket (bucket),
     FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create additional tables that might be referenced in the application
 CREATE TABLE IF NOT EXISTS expense_perm_matrix (
@@ -86,7 +89,7 @@ CREATE TABLE IF NOT EXISTS expense_perm_matrix (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_emp_id (emp_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS crux_auth (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -95,12 +98,7 @@ CREATE TABLE IF NOT EXISTS crux_auth (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_asset (asset),
     INDEX idx_role (role)
-);
-
--- Insert some sample data for testing
-INSERT INTO expense_perm_matrix (emp_id, view_perm, create_perm, edit_perm, pay_perm, auth_perm, del_perm) 
-VALUES (0, 1, 1, 1, 1, 1, 1) 
-ON DUPLICATE KEY UPDATE view_perm = 1, create_perm = 1, edit_perm = 1, pay_perm = 1, auth_perm = 1, del_perm = 1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create gh_audit table for tracking API operations
 CREATE TABLE IF NOT EXISTS gh_audit (
@@ -112,7 +110,12 @@ CREATE TABLE IF NOT EXISTS gh_audit (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_action (action),
     INDEX idx_end_time (end_time)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insert some sample data for testing (only if table is empty)
+INSERT IGNORE INTO expense_perm_matrix (emp_id, view_perm, create_perm, edit_perm, pay_perm, auth_perm, del_perm) 
+VALUES (0, 1, 1, 1, 1, 1, 1);
 
 -- Show table creation results
+SELECT 'Database initialization completed successfully' as status;
 SHOW TABLES; 

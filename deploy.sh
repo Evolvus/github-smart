@@ -322,145 +322,247 @@ setup_database() {
     print_status "Waiting for MySQL to be ready..."
     sleep 20
     
-            # Get the actual MySQL container name with better detection
-        local mysql_container=""
-        
-        # Try docker-compose naming first
-        mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
-        
-        # If not found, try alternative naming patterns
-        if [ -z "$mysql_container" ]; then
-            mysql_container=$(docker ps --format "{{.Names}}" | grep mysql | head -1)
-        fi
-        
-        # If still not found, try by image name
-        if [ -z "$mysql_container" ]; then
-            mysql_container=$(docker ps --format "{{.Names}}" | grep -E "(mysql|mariadb)" | head -1)
-        fi
-        
-        # If still not found, try by port
-        if [ -z "$mysql_container" ]; then
-            mysql_container=$(docker ps --format "{{.Names}}" | xargs -I {} sh -c 'docker port {} 2>/dev/null | grep -q ":3306" && echo {}' | head -1)
-        fi
-        
-        if [ -z "$mysql_container" ]; then
-            print_warning "Could not find MySQL container"
-            print_status "Available containers:"
-            docker ps --format "{{.Names}}" | while read container; do
-                print_status "  - $container"
-            done
-            print_status "Database tables will be created on first use"
-            return 1
-        fi
-        
-        print_status "Found MySQL container: $mysql_container"
+    # Get the actual MySQL container name with better detection
+    local mysql_container=""
     
-    # Copy SQL file to container
-    if [ -f "create_tables.sql" ]; then
-        print_status "Copying create_tables.sql to container..."
-        if docker cp create_tables.sql "${mysql_container}:/tmp/create_tables.sql" 2>/dev/null; then
-            print_success "SQL file copied to container"
-        else
-            print_warning "Failed to copy SQL file to container"
-            return 1
-        fi
-        
-        # Read MySQL credentials from docker.env
-        if [ -f "docker.env" ]; then
-            source docker.env
-            print_status "Using MySQL credentials from docker.env"
-        else
-            print_warning "docker.env not found, using default credentials"
-            MYSQL_ROOT_PASSWORD="github_smart_root_$(date +%s)"
-        fi
-        
-        # Wait a bit more for MySQL to be fully ready
-        print_status "Waiting for MySQL to be fully ready..."
-        sleep 15
-        
-        # Wait for MySQL to be actually ready by checking connectivity
-        print_status "Waiting for MySQL to be accessible..."
-        local mysql_ready=false
-        local max_wait=90
-        local wait_time=0
-        
-        while [ $wait_time -lt $max_wait ] && [ "$mysql_ready" = false ]; do
-            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
-                mysql_ready=true
-                print_success "MySQL is ready"
-            else
-                print_status "Waiting for MySQL to be ready... ($((max_wait - wait_time))s remaining)"
-                sleep 5
-                wait_time=$((wait_time + 5))
-            fi
-        done
-        
-        if [ "$mysql_ready" = false ]; then
-            print_warning "MySQL did not become ready in time"
-            return 1
-        fi
-        
-        # Try multiple times to create tables
-        local max_attempts=3
-        local attempt=1
-        
-        while [ $attempt -le $max_attempts ]; do
-            print_status "Attempt $attempt of $max_attempts to create database tables..."
-            
-            # First, verify we can connect to MySQL
-            if ! docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
-                print_warning "Cannot connect to MySQL with provided credentials"
-                print_status "Container: $mysql_container"
-                print_status "Password: $MYSQL_ROOT_PASSWORD"
-                if [ $attempt -lt $max_attempts ]; then
-                    print_status "Waiting before retry..."
-                    sleep 10
-                fi
-                attempt=$((attempt + 1))
-                continue
-            fi
-            
-            # Verify the database exists
-            if ! docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "USE project_management;" 2>/dev/null >/dev/null; then
-                print_warning "Database 'project_management' does not exist"
-                if [ $attempt -lt $max_attempts ]; then
-                    print_status "Waiting before retry..."
-                    sleep 10
-                fi
-                attempt=$((attempt + 1))
-                continue
-            fi
-            
-            # Try to create tables
-            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "source /tmp/create_tables.sql" 2>/dev/null; then
-                print_success "Database tables created successfully"
-                
-                # Verify tables were created
-                if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
-                    print_success "Database tables verified successfully"
-                    return 0
-                else
-                    print_warning "Database tables may not have been created properly"
-                fi
-            else
-                print_warning "Attempt $attempt failed to create tables"
-                if [ $attempt -lt $max_attempts ]; then
-                    print_status "Waiting before retry..."
-                    sleep 10
-                fi
-            fi
-            
-            attempt=$((attempt + 1))
-        done
-        
-        print_warning "Could not create database tables automatically after $max_attempts attempts"
-        print_status "You may need to create tables manually or they will be created on first use"
-        print_status "Manual setup commands:"
-        print_status "  docker cp create_tables.sql ${mysql_container}:/tmp/"
-        print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management -e \"source /tmp/create_tables.sql\""
-    else
-        print_warning "create_tables.sql not found - database tables will be created on first use"
+    # Try docker-compose naming first
+    mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
+    
+    # If not found, try alternative naming patterns
+    if [ -z "$mysql_container" ]; then
+        mysql_container=$(docker ps --format "{{.Names}}" | grep mysql | head -1)
     fi
+    
+    # If still not found, try by image name
+    if [ -z "$mysql_container" ]; then
+        mysql_container=$(docker ps --format "{{.Names}}" | grep -E "(mysql|mariadb)" | head -1)
+    fi
+    
+    # If still not found, try by port
+    if [ -z "$mysql_container" ]; then
+        mysql_container=$(docker ps --format "{{.Names}}" | xargs -I {} sh -c 'docker port {} 2>/dev/null | grep -q ":3306" && echo {}' | head -1)
+    fi
+    
+    if [ -z "$mysql_container" ]; then
+        print_warning "Could not find MySQL container"
+        print_status "Available containers:"
+        docker ps --format "{{.Names}}" | while read container; do
+            print_status "  - $container"
+        done
+        print_status "Database tables will be created on first use"
+        return 1
+    fi
+    
+    print_status "Found MySQL container: $mysql_container"
+    
+    # Read MySQL credentials from docker.env
+    if [ -f "docker.env" ]; then
+        source docker.env
+        print_status "Using MySQL credentials from docker.env"
+    else
+        print_warning "docker.env not found, using default credentials"
+        MYSQL_ROOT_PASSWORD="github_smart_root_$(date +%s)"
+    fi
+    
+    # Wait for MySQL to be actually ready by checking connectivity
+    print_status "Waiting for MySQL to be accessible..."
+    local mysql_ready=false
+    local max_wait=120
+    local wait_time=0
+    
+    while [ $wait_time -lt $max_wait ] && [ "$mysql_ready" = false ]; do
+        if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
+            mysql_ready=true
+            print_success "MySQL is ready"
+        else
+            print_status "Waiting for MySQL to be ready... ($((max_wait - wait_time))s remaining)"
+            sleep 5
+            wait_time=$((wait_time + 5))
+        fi
+    done
+    
+    if [ "$mysql_ready" = false ]; then
+        print_warning "MySQL did not become ready in time"
+        print_status "Database tables will be created on first use"
+        return 1
+    fi
+    
+    # Create an initialization script that will run inside the MySQL container
+    print_status "Creating database initialization script..."
+    cat > init_db.sql << 'EOF'
+-- Database initialization script
+CREATE DATABASE IF NOT EXISTS project_management;
+USE project_management;
+
+-- Create gh_issues table
+CREATE TABLE IF NOT EXISTS gh_issues (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    gh_id INT NOT NULL,
+    gh_node_id VARCHAR(255) NOT NULL,
+    gh_id_url TEXT NOT NULL,
+    repo VARCHAR(255) NOT NULL,
+    repo_url TEXT NOT NULL,
+    gh_project_url TEXT,
+    issue_text TEXT NOT NULL,
+    client VARCHAR(255),
+    assigned_date DATE NOT NULL,
+    target_date DATE NULL,
+    gh_json LONGTEXT NOT NULL,
+    assignee VARCHAR(255) NOT NULL DEFAULT 'UNASSIGNED',
+    gh_project VARCHAR(255),
+    gh_project_title VARCHAR(255),
+    last_updated_at DATETIME NOT NULL,
+    closed_at DATETIME NULL,
+    gh_state VARCHAR(50) NOT NULL DEFAULT 'open',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_gh_id (gh_id),
+    UNIQUE KEY uk_gh_node_id (gh_node_id),
+    INDEX idx_assignee (assignee),
+    INDEX idx_gh_state (gh_state),
+    INDEX idx_assigned_date (assigned_date),
+    INDEX idx_gh_project (gh_project)
+);
+
+-- Create gh_projects table
+CREATE TABLE IF NOT EXISTS gh_projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    gh_id VARCHAR(255) NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    closed VARCHAR(10) DEFAULT 'false',
+    count_of_issues INT DEFAULT 0,
+    url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_gh_id (gh_id),
+    INDEX idx_title (title)
+);
+
+-- Create gh_issue_tags table
+CREATE TABLE IF NOT EXISTS gh_issue_tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    gh_node_id VARCHAR(255) NOT NULL,
+    tag VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_gh_node_id (gh_node_id),
+    INDEX idx_tag (tag),
+    FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
+);
+
+-- Create gh_pinned_issues table
+CREATE TABLE IF NOT EXISTS gh_pinned_issues (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gh_node_id VARCHAR(255) NOT NULL,
+    bucket INT DEFAULT 1,
+    is_deleted ENUM('YES', 'NO') DEFAULT 'NO',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_gh_node_id (gh_node_id),
+    INDEX idx_bucket (bucket),
+    FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
+);
+
+-- Create additional tables that might be referenced in the application
+CREATE TABLE IF NOT EXISTS expense_perm_matrix (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_id INT NOT NULL,
+    view_perm TINYINT(1) DEFAULT 0,
+    create_perm TINYINT(1) DEFAULT 0,
+    edit_perm TINYINT(1) DEFAULT 0,
+    pay_perm TINYINT(1) DEFAULT 0,
+    auth_perm TINYINT(1) DEFAULT 0,
+    del_perm TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_emp_id (emp_id)
+);
+
+CREATE TABLE IF NOT EXISTS crux_auth (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    asset VARCHAR(255) NOT NULL,
+    role VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_asset (asset),
+    INDEX idx_role (role)
+);
+
+-- Insert some sample data for testing
+INSERT INTO expense_perm_matrix (emp_id, view_perm, create_perm, edit_perm, pay_perm, auth_perm, del_perm) 
+VALUES (0, 1, 1, 1, 1, 1, 1) 
+ON DUPLICATE KEY UPDATE view_perm = 1, create_perm = 1, edit_perm = 1, pay_perm = 1, auth_perm = 1, del_perm = 1;
+
+-- Create gh_audit table for tracking API operations
+CREATE TABLE IF NOT EXISTS gh_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(255) NOT NULL,
+    start_time DATETIME,
+    end_time DATETIME,
+    status VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_action (action),
+    INDEX idx_end_time (end_time)
+);
+
+-- Show table creation results
+SHOW TABLES;
+EOF
+
+    # Copy the initialization script to the MySQL container
+    print_status "Copying initialization script to MySQL container..."
+    if docker cp init_db.sql "${mysql_container}:/tmp/init_db.sql" 2>/dev/null; then
+        print_success "Initialization script copied to container"
+    else
+        print_warning "Failed to copy initialization script to container"
+        return 1
+    fi
+    
+    # Try multiple times to create tables
+    local max_attempts=3
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        print_status "Attempt $attempt of $max_attempts to create database tables..."
+        
+        # Execute the initialization script
+        if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < init_db.sql 2>/dev/null; then
+            print_success "Database tables created successfully"
+            
+            # Verify tables were created
+            if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
+                print_success "Database tables verified successfully"
+                
+                # Show table count
+                local table_count=$(docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | wc -l)
+                print_success "Created $table_count tables in project_management database"
+                
+                # Clean up the temporary file
+                rm -f init_db.sql
+                return 0
+            else
+                print_warning "Database tables may not have been created properly"
+            fi
+        else
+            print_warning "Attempt $attempt failed to create tables"
+            if [ $attempt -lt $max_attempts ]; then
+                print_status "Waiting before retry..."
+                sleep 10
+            fi
+        fi
+        
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Could not create database tables automatically after $max_attempts attempts"
+    print_status "Database tables will be created on first use"
+    print_status "Manual setup commands:"
+    print_status "  docker cp init_db.sql ${mysql_container}:/tmp/"
+    print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} < init_db.sql"
+    
+    # Clean up the temporary file
+    rm -f init_db.sql
 }
 
 # Function to check container status
