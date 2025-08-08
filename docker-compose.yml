@@ -14,7 +14,7 @@ services:
       - DB_PORT=3306
       - DB_NAME=project_management
       - DB_USER=github_smart_user
-      - DB_PASSWORD=github_smart_1754631318
+      - DB_PASSWORD=github_smart_1754640292
     env_file:
       - docker.env
     restart: unless-stopped
@@ -43,7 +43,7 @@ services:
       - ./create_tables.sql:/docker-entrypoint-initdb.d/01-create-tables.sql:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pgithub_smart_root_1754631318"]
       timeout: 10s
       retries: 15
       start_period: 60s
