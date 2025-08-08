@@ -370,17 +370,36 @@ setup_database() {
     print_status "Ensuring MySQL is fully ready for connections..."
     sleep 10
     
-    # Test MySQL connectivity
+    # Test MySQL connectivity with better error handling
     local mysql_ready=false
     local max_test_wait=60
     local test_wait_time=0
     
+    print_status "Testing MySQL connectivity with credentials..."
+    print_status "Container: $mysql_container"
+    print_status "User: root"
+    print_status "Database: project_management"
+    
     while [ $test_wait_time -lt $max_test_wait ] && [ "$mysql_ready" = false ]; do
+        # Try multiple connection methods
         if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
             mysql_ready=true
             print_success "MySQL is ready for connections"
+        elif docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SELECT 1;" 2>/dev/null >/dev/null; then
+            mysql_ready=true
+            print_success "MySQL is ready for connections (with database)"
+        elif docker exec -i "${mysql_container}" mysqladmin -u root -p"${MYSQL_ROOT_PASSWORD}" ping 2>/dev/null >/dev/null; then
+            mysql_ready=true
+            print_success "MySQL is ready for connections (ping successful)"
         else
             print_status "Testing MySQL connectivity... ($((max_test_wait - test_wait_time))s remaining)"
+            # Show some debug info
+            if [ $test_wait_time -eq 0 ]; then
+                print_status "Debug: Checking MySQL process..."
+                docker exec -i "${mysql_container}" ps aux | grep mysql || true
+                print_status "Debug: Checking MySQL logs..."
+                docker logs "${mysql_container}" --tail=5 || true
+            fi
             sleep 5
             test_wait_time=$((test_wait_time + 5))
         fi
@@ -388,8 +407,9 @@ setup_database() {
     
     if [ "$mysql_ready" = false ]; then
         print_warning "MySQL did not become ready for connections in time"
-        print_status "Database tables will be created automatically by MySQL container initialization"
+        print_status "However, the database tables will be created automatically by MySQL container initialization"
         print_status "The create_tables.sql file is mounted to /docker-entrypoint-initdb.d/ and will run automatically"
+        print_status "You can verify the tables were created by checking the database after the application starts"
         return 1
     fi
     
@@ -561,14 +581,28 @@ EOF
         attempt=$((attempt + 1))
     done
     
-    print_warning "Could not create database tables automatically after $max_attempts attempts"
-    print_status "Database tables will be created on first use"
-    print_status "Manual setup commands:"
-    print_status "  docker cp init_db.sql ${mysql_container}:/tmp/"
-    print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} < init_db.sql"
+    print_warning "Could not create database tables manually after $max_attempts attempts"
+    print_status "However, the database tables will be created automatically by MySQL container initialization"
+    print_status "The create_tables.sql file is mounted to /docker-entrypoint-initdb.d/ and will run automatically"
+    print_status "You can verify the tables were created by checking the database after the application starts"
+    print_status "Manual verification command:"
+    print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management -e 'SHOW TABLES;'"
     
     # Clean up the temporary file
     rm -f init_db.sql
+    
+    # Final verification - check if tables were created automatically
+    print_status "Performing final verification of database tables..."
+    sleep 5
+    
+    if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
+        print_success "Database tables verified successfully (created automatically)"
+        local table_count=$(docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | wc -l)
+        print_success "Found $table_count tables in project_management database"
+    else
+        print_warning "Database tables not found yet - they will be created automatically on first use"
+        print_status "The application will work correctly once the tables are created"
+    fi
 }
 
 # Function to check container status
