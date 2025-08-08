@@ -15,6 +15,7 @@
 - [🔧 Configuration](#-configuration)
 - [📊 Usage](#-usage)
 - [🛠️ Development](#️-development)
+- [🔧 Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
 - [📝 License](#-license)
 
@@ -44,9 +45,9 @@
 
 ### ⚡ Deploy in 30 Seconds
 
-**Download and run the deployment script:**
+**One-command deployment:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh | bash -s -- -o YOUR_ORG -t YOUR_GITHUB_TOKEN
+rm -rf * && curl -fsSL https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh | bash -s -- -o YOUR_ORG -t YOUR_GITHUB_TOKEN
 ```
 
 **Or download first, then run:**
@@ -230,7 +231,7 @@ openssl rand -hex 16
 
 After deployment, access the application at:
 - **Main Dashboard**: http://localhost:8080
-- **Database**: localhost:3306 (MySQL)
+- **Database**: localhost:3307 (MySQL)
 
 ### 📋 Main Features
 
@@ -322,6 +323,123 @@ docker-compose exec app bash
 docker-compose exec mysql mysql -u root -p
 ```
 
+## 🔧 Troubleshooting
+
+### 🚨 Common Issues
+
+#### 1. Docker Registry Access Issues
+
+**Error**: `denied: denied` from ghcr.io
+
+**Solutions**:
+```bash
+# Test Docker connectivity
+docker pull hello-world
+
+# Test GitHub Container Registry
+docker pull ghcr.io/evolvus/github-smart:latest
+
+# Check if image exists
+curl -s https://ghcr.io/v2/evolvus/github-smart/tags/list
+```
+
+#### 2. GitHub Token Issues
+
+**Error**: `401 Unauthorized` or token validation failures
+
+**Solutions**:
+```bash
+# Test token manually
+curl -H "Authorization: Bearer YOUR_TOKEN" https://api.github.com/user
+
+# Verify token permissions
+curl -H "Authorization: Bearer YOUR_TOKEN" https://api.github.com/user/repos
+```
+
+#### 3. Database Connection Issues
+
+**Error**: MySQL connection failures
+
+**Solutions**:
+```bash
+# Check container status
+docker-compose ps
+
+# View MySQL logs
+docker-compose logs mysql
+
+# Test database connection
+docker-compose exec mysql mysql -u root -p -e "SELECT 1;"
+```
+
+#### 4. Port Conflicts
+
+**Error**: `Bind for 0.0.0.0:8080 failed: port is already allocated`
+
+**Solutions**:
+```bash
+# Use different port
+./deploy.sh -o YOUR_ORG -t YOUR_TOKEN -p 9090
+
+# Check what's using the port
+lsof -i :8080
+
+# Stop conflicting containers
+docker stop $(docker ps -q)
+```
+
+### 🔍 Debugging Commands
+
+```bash
+# Check container status
+docker-compose ps
+
+# View all logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f app
+docker-compose logs -f mysql
+
+# Access container shell
+docker-compose exec app bash
+docker-compose exec mysql bash
+
+# Check database tables
+docker-compose exec mysql mysql -u root -p project_management -e "SHOW TABLES;"
+
+# Test application
+curl -s http://localhost:8080 | head -10
+
+# Test API
+curl -X POST http://localhost:8080/api/getGHIssues.php
+```
+
+### 🛠️ Manual Database Setup
+
+If automatic database initialization fails:
+
+```bash
+# Run manual database setup
+./scripts/init_database.sh
+
+# Or manually create tables
+docker-compose exec mysql mysql -u root -p < create_tables.sql
+```
+
+### 📊 Health Checks
+
+```bash
+# Check application health
+curl -f http://localhost:8080/ || echo "Application not responding"
+
+# Check database health
+docker-compose exec mysql mysqladmin -u root -p ping
+
+# Check GitHub API
+curl -H "Authorization: Bearer YOUR_TOKEN" https://api.github.com/user
+```
+
 ## 🤝 Contributing
 
 We welcome contributions! Here's how to get started:
@@ -359,38 +477,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### 📖 Documentation
 - **📋 This README**: Complete setup and usage guide
-- **🔧 Troubleshooting**: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **🔧 Troubleshooting**: See troubleshooting section above
 - **📚 API Docs**: Inline documentation in code
 
 ### 🆘 Getting Help
 - **🐛 Issues**: [GitHub Issues](https://github.com/Evolvus/github-smart/issues)
 - **💬 Discussions**: [GitHub Discussions](https://github.com/Evolvus/github-smart/discussions)
 - **📧 Email**: Contact the maintainers
-
-### 🔧 Quick Troubleshooting
-
-```bash
-# Check container status
-docker-compose ps
-
-# View logs
-docker-compose logs -f
-
-# Restart services
-docker-compose restart
-
-# Check GitHub token
-curl -H "Authorization: Bearer YOUR_TOKEN" https://api.github.com/user
-```
-
-### 🚨 Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| **Container won't start** | Check Docker is running: `docker info` |
-| **GitHub API errors** | Verify token permissions and format |
-| **Database connection** | Check MySQL container is running |
-| **Port conflicts** | Use different port: `-p 9090` |
 
 ---
 
