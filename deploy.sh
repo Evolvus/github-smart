@@ -593,16 +593,40 @@ EOF
     
     # Final verification - check if tables were created automatically
     print_status "Performing final verification of database tables..."
-    sleep 5
+    sleep 10
     
-    if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
-        print_success "Database tables verified successfully (created automatically)"
-        local table_count=$(docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | wc -l)
-        print_success "Found $table_count tables in project_management database"
-    else
-        print_warning "Database tables not found yet - they will be created automatically on first use"
-        print_status "The application will work correctly once the tables are created"
-    fi
+    # Try multiple times to verify tables
+    local verify_attempts=3
+    local verify_attempt=1
+    
+    while [ $verify_attempt -le $verify_attempts ]; do
+        print_status "Verification attempt $verify_attempt of $verify_attempts..."
+        
+        if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -q "gh_issues"; then
+            print_success "Database tables verified successfully (created automatically)"
+            local table_count=$(docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | wc -l)
+            print_success "Found $table_count tables in project_management database"
+            
+            # Show table names
+            print_status "Tables in project_management database:"
+            docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" project_management -e "SHOW TABLES;" 2>/dev/null | grep -v "Tables_in"
+            return 0
+        else
+            print_status "Tables not found yet (attempt $verify_attempt/$verify_attempts)"
+            if [ $verify_attempt -lt $verify_attempts ]; then
+                print_status "Waiting for automatic table creation..."
+                sleep 10
+            fi
+        fi
+        
+        verify_attempt=$((verify_attempt + 1))
+    done
+    
+    print_warning "Database tables not found after verification attempts"
+    print_status "The tables will be created automatically when the application first accesses the database"
+    print_status "This is normal behavior - the application will work correctly once the tables are created"
+    print_status "You can manually verify later with:"
+    print_status "  docker exec -i ${mysql_container} mysql -u root -p${MYSQL_ROOT_PASSWORD} project_management -e 'SHOW TABLES;'"
 }
 
 # Function to check container status

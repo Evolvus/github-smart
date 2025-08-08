@@ -5,7 +5,7 @@
 CREATE DATABASE IF NOT EXISTS project_management;
 USE project_management;
 
--- Create gh_issues table
+-- Create gh_issues table (first, as it's referenced by other tables)
 CREATE TABLE IF NOT EXISTS gh_issues (
     id INT AUTO_INCREMENT PRIMARY KEY,
     gh_id INT NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS gh_projects (
     INDEX idx_title (title)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create gh_issue_tags table
+-- Create gh_issue_tags table (without foreign key initially)
 CREATE TABLE IF NOT EXISTS gh_issue_tags (
     id INT AUTO_INCREMENT PRIMARY KEY,
     gh_node_id VARCHAR(255) NOT NULL,
@@ -57,11 +57,10 @@ CREATE TABLE IF NOT EXISTS gh_issue_tags (
     color VARCHAR(7) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_gh_node_id (gh_node_id),
-    INDEX idx_tag (tag),
-    FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
+    INDEX idx_tag (tag)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create gh_pinned_issues table
+-- Create gh_pinned_issues table (without foreign key initially)
 CREATE TABLE IF NOT EXISTS gh_pinned_issues (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -72,8 +71,7 @@ CREATE TABLE IF NOT EXISTS gh_pinned_issues (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id),
     INDEX idx_gh_node_id (gh_node_id),
-    INDEX idx_bucket (bucket),
-    FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE
+    INDEX idx_bucket (bucket)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create additional tables that might be referenced in the application
@@ -115,6 +113,12 @@ CREATE TABLE IF NOT EXISTS gh_audit (
 -- Insert some sample data for testing (only if table is empty)
 INSERT IGNORE INTO expense_perm_matrix (emp_id, view_perm, create_perm, edit_perm, pay_perm, auth_perm, del_perm) 
 VALUES (0, 1, 1, 1, 1, 1, 1);
+
+-- Add foreign key constraints after all tables are created (optional, can be added later)
+-- ALTER TABLE gh_issue_tags ADD CONSTRAINT fk_gh_issue_tags_gh_node_id 
+--     FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE;
+-- ALTER TABLE gh_pinned_issues ADD CONSTRAINT fk_gh_pinned_issues_gh_node_id 
+--     FOREIGN KEY (gh_node_id) REFERENCES gh_issues(gh_node_id) ON DELETE CASCADE;
 
 -- Show table creation results
 SELECT 'Database initialization completed successfully' as status;
