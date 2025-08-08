@@ -10,13 +10,90 @@ function write_log($message) {
     file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
 }
 
+function fetchProjectMapping($org, $token, $appName) {
+    $graphql_query = '
+    query($org: String!) {
+        organization(login: $org) {
+            projectsV2(first: 100) {
+                nodes {
+                    id
+                    number
+                    title
+                    url
+                    closed
+                }
+            }
+        }
+    }';
+
+    $variables = [
+        'org' => $org
+    ];
+
+    $data = [
+        'query' => $graphql_query,
+        'variables' => $variables
+    ];
+
+    $headers = [
+        'Authorization: Bearer ' . $token,
+        'Content-Type: application/json',
+        'User-Agent: ' . $appName
+    ];
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, 'https://api.github.com/graphql');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code !== 200) {
+        throw new Exception("GitHub API returned HTTP code: {$http_code}");
+    }
+
+    $result = json_decode($response, true);
+    
+    if (isset($result['errors'])) {
+        throw new Exception("GraphQL API errors: " . json_encode($result['errors']));
+    }
+
+    $projects = $result['data']['organization']['projectsV2']['nodes'] ?? [];
+    
+    // Create mapping from project ID to project number
+    $projectMapping = [];
+    foreach ($projects as $project) {
+        if (!$project['closed']) {
+            $projectMapping[$project['id']] = $project['number'];
+        }
+    }
+    
+    return $projectMapping;
+}
+
 function fetchProjectStatus($org, $token, $appName, $projectId) {
+    // Extract project number from project ID
+    $projectNumber = extractProjectNumber($projectId);
+    
+    if (!$projectNumber) {
+        throw new Exception("Could not extract project number from project ID: {$projectId}");
+    }
+    
+    write_log("Extracted project number: {$projectNumber} from project ID: {$projectId}");
+    
     $graphql_query = '
     query($org: String!, $projectNumber: Int!) {
         organization(login: $org) {
             projectV2(number: $projectNumber) {
                 id
                 title
+                number
                 fields(first: 20) {
                     nodes {
                         ... on ProjectV2Field {
@@ -53,6 +130,12 @@ function fetchProjectStatus($org, $token, $appName, $projectId) {
                                         login
                                     }
                                 }
+                                repository {
+                                    name
+                                    owner {
+                                        login
+                                    }
+                                }
                             }
                         }
                         fieldValues(first: 20) {
@@ -86,14 +169,6 @@ function fetchProjectStatus($org, $token, $appName, $projectId) {
         }
     }';
 
-    // Extract project number from project ID or URL
-    $projectNumber = 1; // Default to project 1 (SYNECA ROADMAP)
-    
-    // If projectId contains a number, try to extract it
-    if (preg_match('/projects\/(\d+)/', $projectId, $matches)) {
-        $projectNumber = (int)$matches[1];
-    }
-    
     $variables = [
         'org' => $org,
         'projectNumber' => $projectNumber
@@ -140,6 +215,37 @@ function fetchProjectStatus($org, $token, $appName, $projectId) {
     return $result['data'] ?? null;
 }
 
+function extractProjectNumber($projectId) {
+    global $GITHUB_ORG, $GITHUB_API_TOKEN, $APP_NAME;
+    
+    // Pattern 1: Extract from URL like "https://github.com/orgs/Syneca/projects/1"
+    if (preg_match('/projects\/(\d+)/', $projectId, $matches)) {
+        return (int)$matches[1];
+    }
+    
+    // Pattern 2: If it's already a number
+    if (is_numeric($projectId)) {
+        return (int)$projectId;
+    }
+    
+    // Pattern 3: Try to extract any number from the string
+    if (preg_match('/(\d+)/', $projectId, $matches)) {
+        return (int)$matches[1];
+    }
+    
+    // Pattern 4: For opaque project IDs, fetch the mapping from GitHub
+    try {
+        $mappingData = fetchProjectMapping($GITHUB_ORG, $GITHUB_API_TOKEN, $APP_NAME);
+        if ($mappingData && isset($mappingData['projectMapping'][$projectId])) {
+            return $mappingData['projectMapping'][$projectId];
+        }
+    } catch (Exception $e) {
+        write_log("Failed to fetch project mapping: " . $e->getMessage());
+    }
+    
+    return null;
+}
+
 try {
     $projectId = $_GET['projectId'] ?? null;
     
@@ -162,6 +268,8 @@ try {
         throw new Exception("Project not found");
     }
 
+    write_log("Found project: {$project['title']} (Number: {$project['number']})");
+
     // Get status field options
     $statusOptions = [];
     $statusField = null;
@@ -176,13 +284,16 @@ try {
         }
     }
 
+    write_log("Status field found: " . ($statusField ? $statusField['name'] : 'No status field'));
+    write_log("Status options: " . json_encode($statusOptions));
+
     // Process items and their status
     $itemsByStatus = [];
     $statusMapping = [
-        'backlog' => ['Backlog', 'To Do', 'Todo'],
-        'ready' => ['Ready', 'Ready for Development'],
-        'in-progress' => ['In Progress', 'In Development', 'Development'],
-        'review' => ['Review', 'In Review', 'Testing'],
+        'backlog' => ['Backlog', 'To Do', 'Todo', 'Triage'],
+        'ready' => ['Ready', 'Ready for Development', 'Ready to Start'],
+        'in-progress' => ['In Progress', 'In Development', 'Development', 'Working on it'],
+        'review' => ['Review', 'In Review', 'Testing', 'QA'],
         'done' => ['Done', 'Complete', 'Completed', 'Closed']
     ];
 
@@ -197,6 +308,14 @@ try {
         $issueNumber = $issue['number'];
         $issueTitle = $issue['title'];
         $issueState = $issue['state'];
+        $repository = $issue['repository']['name'] ?? 'Unknown';
+        $assignees = [];
+        
+        if (isset($issue['assignees']['nodes'])) {
+            foreach ($issue['assignees']['nodes'] as $assignee) {
+                $assignees[] = $assignee['login'];
+            }
+        }
 
         // Find status from field values
         foreach ($item['fieldValues']['nodes'] as $fieldValue) {
@@ -204,6 +323,7 @@ try {
                 ($fieldValue['field']['name'] === 'Status' || $fieldValue['field']['name'] === 'status')) {
                 
                 $statusName = $fieldValue['name'] ?? '';
+                write_log("Issue #{$issueNumber} has status: {$statusName}");
                 
                 // Map status to our categories
                 foreach ($statusMapping as $category => $statusNames) {
@@ -230,8 +350,15 @@ try {
             'number' => $issueNumber,
             'title' => $issueTitle,
             'state' => $issueState,
-            'status' => $issueStatus
+            'status' => $issueStatus,
+            'repository' => $repository,
+            'assignees' => $assignees
         ];
+    }
+
+    // Log status distribution
+    foreach ($itemsByStatus as $status => $items) {
+        write_log("Status '{$status}': " . count($items) . " items");
     }
 
     $response = [
@@ -239,6 +366,7 @@ try {
         'project' => [
             'id' => $project['id'],
             'title' => $project['title'],
+            'number' => $project['number'],
             'statusOptions' => $statusOptions,
             'itemsByStatus' => $itemsByStatus
         ]

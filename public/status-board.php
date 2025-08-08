@@ -171,6 +171,12 @@ require_once('head.php');
                         </button>
                     </div>
                 </div>
+                <div id="project-info" class="mt-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">Project Information</h6>
+                        <div id="project-details"></div>
+                    </div>
+                </div>
             </div>
             
             <!-- Status Board -->
@@ -266,6 +272,7 @@ function loadProjects() {
 function loadStatusBoard() {
     if (!currentProject) {
         document.getElementById('status-board').innerHTML = '<div class="empty-state">Please select a project to view the status board.</div>';
+        document.getElementById('project-info').style.display = 'none';
         return;
     }
     
@@ -283,6 +290,11 @@ function loadStatusBoard() {
         
         console.log('Project status data:', projectStatus);
         console.log('Issues data:', issues.length, 'issues');
+        
+        // Show project information
+        if (projectData.project) {
+            showProjectInfo(projectData.project);
+        }
         
         // Use actual project status if available, otherwise use intelligent mapping
         allIssues = mergeProjectStatusWithIssues(issues, projectStatus);
@@ -365,12 +377,17 @@ function mergeProjectStatusWithIssues(issues, projectStatus) {
     });
     
     console.log('Status map created:', statusMap);
+    console.log('Available issues:', issues.map(i => i.gh_id));
     
     // Merge status with issues
-    return issues.map(issue => ({
-        ...issue,
-        projectStatus: statusMap[issue.gh_id] || 'backlog' // default to backlog if no status found
-    }));
+    return issues.map(issue => {
+        const projectStatus = statusMap[issue.gh_id] || 'backlog'; // default to backlog if no status found
+        console.log(`Issue #${issue.gh_id} mapped to status: ${projectStatus}`);
+        return {
+            ...issue,
+            projectStatus: projectStatus
+        };
+    });
 }
 
 function intelligentStatusMapping(issues) {
@@ -380,30 +397,35 @@ function intelligentStatusMapping(issues) {
         let projectStatus = 'backlog'; // default
         
         // Map based on issue properties and GitHub project status options
-        const issueId = parseInt(issue.gh_id);
         const hasAssignee = issue.assignee && issue.assignee !== 'Unassigned';
+        const hasLabels = issue.labels && issue.labels.length > 0;
+        const isHighPriority = hasLabels && issue.labels.some(label => 
+            label.toLowerCase().includes('priority') || 
+            label.toLowerCase().includes('urgent') ||
+            label.toLowerCase().includes('critical')
+        );
         
         if (issue.gh_state === 'closed') {
             projectStatus = 'done';
         } else if (hasAssignee) {
-            // Assigned issues - distribute based on issue ID
-            if (issueId % 4 === 0) {
-                projectStatus = 'review';
-            } else if (issueId % 3 === 0) {
+            // Assigned issues - prioritize based on labels and assignee
+            if (isHighPriority) {
+                projectStatus = 'in-progress';
+            } else if (hasLabels) {
                 projectStatus = 'ready';
             } else {
                 projectStatus = 'in-progress';
             }
         } else {
             // Unassigned issues
-            if (issueId % 2 === 0) {
+            if (isHighPriority) {
                 projectStatus = 'ready';
             } else {
                 projectStatus = 'backlog';
             }
         }
         
-        console.log(`Issue #${issue.gh_id} (${issue.issue_text.substring(0, 30)}...) -> ${projectStatus} (assignee: ${issue.assignee || 'none'})`);
+        console.log(`Issue #${issue.gh_id} (${issue.issue_text.substring(0, 30)}...) -> ${projectStatus} (assignee: ${issue.assignee || 'none'}, labels: ${issue.labels?.join(', ') || 'none'})`);
         
         return {
             ...issue,
@@ -432,9 +454,17 @@ function updateStatusSummary(groupedIssues) {
     
     // Show note about data source
     const hasProjectData = allIssues.some(issue => issue.projectStatus && issue.projectStatus !== 'backlog');
-    const note = hasProjectData 
-        ? "Using actual GitHub ProjectV2 status data" 
-        : "Using intelligent mapping (issues not assigned to GitHub project)";
+    const projectDataCount = allIssues.filter(issue => issue.projectStatus && issue.projectStatus !== 'backlog').length;
+    const totalIssues = allIssues.length;
+    
+    let note = '';
+    if (hasProjectData && projectDataCount === totalIssues) {
+        note = `Using actual GitHub ProjectV2 status data (${projectDataCount}/${totalIssues} issues)`;
+    } else if (hasProjectData) {
+        note = `Using GitHub ProjectV2 data for ${projectDataCount}/${totalIssues} issues, intelligent mapping for others`;
+    } else {
+        note = `Using intelligent mapping (${totalIssues} issues not assigned to GitHub project)`;
+    }
     document.getElementById('status-note').textContent = note;
 }
 
@@ -457,6 +487,39 @@ function groupIssuesByProjectStatus(issues) {
     });
     
     return grouped;
+}
+
+function showProjectInfo(project) {
+    const projectInfo = document.getElementById('project-info');
+    const projectDetails = document.getElementById('project-details');
+    
+    let detailsHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Project:</strong> ${project.title}<br>
+                <strong>Project Number:</strong> ${project.number}<br>
+                <strong>Status Options:</strong> ${project.statusOptions?.length || 0} available
+            </div>
+            <div class="col-md-6">
+                <strong>Total Items:</strong> ${Object.values(project.itemsByStatus).flat().length}<br>
+                <strong>Status Distribution:</strong><br>
+    `;
+    
+    // Show status distribution
+    Object.keys(project.itemsByStatus).forEach(status => {
+        const count = project.itemsByStatus[status].length;
+        if (count > 0) {
+            detailsHTML += `&nbsp;&nbsp;&nbsp;&nbsp;• ${status}: ${count}<br>`;
+        }
+    });
+    
+    detailsHTML += `
+            </div>
+        </div>
+    `;
+    
+    projectDetails.innerHTML = detailsHTML;
+    projectInfo.style.display = 'block';
 }
 
 function createIssueCard(issue) {
