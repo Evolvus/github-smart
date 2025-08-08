@@ -34,6 +34,8 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-project_management}
       MYSQL_USER: ${MYSQL_USER:-github_smart_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    env_file:
+      - docker.env
     ports:
       - "3307:3306"
     volumes:
