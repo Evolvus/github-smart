@@ -318,30 +318,32 @@ EOF
 setup_database() {
     print_status "Setting up database tables..."
     
-    # Wait for MySQL to be ready
+    # Wait for MySQL to be ready using docker-compose health check
     print_status "Waiting for MySQL to be ready..."
-    sleep 20
     
-    # Get the actual MySQL container name with better detection
-    local mysql_container=""
+    # Wait for MySQL container to be healthy
+    local max_wait=180
+    local wait_time=0
     
-    # Try docker-compose naming first
-    mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
+    while [ $wait_time -lt $max_wait ]; do
+        if docker-compose ps mysql | grep -q "healthy"; then
+            print_success "MySQL container is healthy"
+            break
+        else
+            print_status "Waiting for MySQL to be healthy... ($((max_wait - wait_time))s remaining)"
+            sleep 5
+            wait_time=$((wait_time + 5))
+        fi
+    done
     
-    # If not found, try alternative naming patterns
-    if [ -z "$mysql_container" ]; then
-        mysql_container=$(docker ps --format "{{.Names}}" | grep mysql | head -1)
+    if [ $wait_time -ge $max_wait ]; then
+        print_warning "MySQL container did not become healthy in time"
+        print_status "Database tables will be created on first use"
+        return 1
     fi
     
-    # If still not found, try by image name
-    if [ -z "$mysql_container" ]; then
-        mysql_container=$(docker ps --format "{{.Names}}" | grep -E "(mysql|mariadb)" | head -1)
-    fi
-    
-    # If still not found, try by port
-    if [ -z "$mysql_container" ]; then
-        mysql_container=$(docker ps --format "{{.Names}}" | xargs -I {} sh -c 'docker port {} 2>/dev/null | grep -q ":3306" && echo {}' | head -1)
-    fi
+    # Get the actual MySQL container name
+    local mysql_container=$(docker-compose ps -q mysql 2>/dev/null || echo "")
     
     if [ -z "$mysql_container" ]; then
         print_warning "Could not find MySQL container"
@@ -364,26 +366,30 @@ setup_database() {
         MYSQL_ROOT_PASSWORD="github_smart_root_$(date +%s)"
     fi
     
-    # Wait for MySQL to be actually ready by checking connectivity
-    print_status "Waiting for MySQL to be accessible..."
-    local mysql_ready=false
-    local max_wait=120
-    local wait_time=0
+    # Additional wait to ensure MySQL is fully ready for connections
+    print_status "Ensuring MySQL is fully ready for connections..."
+    sleep 10
     
-    while [ $wait_time -lt $max_wait ] && [ "$mysql_ready" = false ]; do
+    # Test MySQL connectivity
+    local mysql_ready=false
+    local max_test_wait=60
+    local test_wait_time=0
+    
+    while [ $test_wait_time -lt $max_test_wait ] && [ "$mysql_ready" = false ]; do
         if docker exec -i "${mysql_container}" mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" 2>/dev/null >/dev/null; then
             mysql_ready=true
-            print_success "MySQL is ready"
+            print_success "MySQL is ready for connections"
         else
-            print_status "Waiting for MySQL to be ready... ($((max_wait - wait_time))s remaining)"
+            print_status "Testing MySQL connectivity... ($((max_test_wait - test_wait_time))s remaining)"
             sleep 5
-            wait_time=$((wait_time + 5))
+            test_wait_time=$((test_wait_time + 5))
         fi
     done
     
     if [ "$mysql_ready" = false ]; then
-        print_warning "MySQL did not become ready in time"
-        print_status "Database tables will be created on first use"
+        print_warning "MySQL did not become ready for connections in time"
+        print_status "Database tables will be created automatically by MySQL container initialization"
+        print_status "The create_tables.sql file is mounted to /docker-entrypoint-initdb.d/ and will run automatically"
         return 1
     fi
     
