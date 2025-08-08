@@ -13,8 +13,8 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_NAME=project_management
-      - DB_USER=${MYSQL_USER:-github_smart_user}
-      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - DB_USER=github_smart_user
+      - DB_PASSWORD=github_smart_1754631318
     env_file:
       - docker.env
     restart: unless-stopped
@@ -30,10 +30,10 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-project_management}
-      MYSQL_USER: ${MYSQL_USER:-github_smart_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: github_smart_root_1754631318
+      MYSQL_DATABASE: project_management
+      MYSQL_USER: github_smart_user
+      MYSQL_PASSWORD: github_smart_1754631318
     env_file:
       - docker.env
     ports:
