@@ -1,3 +1,100 @@
+# GitHub Smart
+
+Production-ready PHP app to manage and visualize GitHub issues and projects.
+
+## Requirements
+
+- Docker 20.10+ and Docker Compose
+- GitHub account (for GitHub Container Registry)
+
+## Quickstart (local)
+
+```bash
+docker compose up -d
+# App: http://localhost:8081
+# MySQL: localhost:3308
+```
+
+Notes:
+- Database tables are auto-created in local compose via `create_tables.sql`.
+- Application logs are written to `logs/` on your host.
+
+## Configuration
+
+The container creates `config/.env` at runtime from environment variables:
+- APP_ENV (default: production)
+- DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+- GITHUB_TOKEN (optional)
+
+## CI/CD: Build and publish Docker image (GHCR)
+
+On push to `main`, GitHub Actions builds and publishes the image to GitHub Container Registry (GHCR):
+- Image: `ghcr.io/<owner>/github-smart:latest`
+- Workflow: `.github/workflows/docker-publish.yml`
+
+No extra setup required for public repos. For private repos, ensure Actions has “Write packages” permission in repo settings.
+
+## One-touch deploy
+
+This runs the app using the latest image from GHCR and starts a MySQL container if one is not running.
+
+1) Authenticate to GHCR (if your repo is private):
+```bash
+export GHCR_USER=<github-username>
+export GHCR_TOKEN=<PAT with read:packages>
+```
+
+2) Set optional app/database variables (or use defaults):
+```bash
+export APP_PORT=8081
+export DB_NAME=project_management
+export DB_USER=github_smart_user
+export DB_PASSWORD=github_smart_password
+export GITHUB_TOKEN=<your_github_token_optional>
+```
+
+3) Deploy:
+```bash
+./deploy.sh
+```
+
+App will be available at `http://localhost:${APP_PORT:-8081}`.
+
+### First-time database initialization (deploy.sh path)
+
+When using `deploy.sh`, the database container does not auto-run `create_tables.sql`.
+
+Run once after containers start:
+```bash
+docker exec -i github-smart-mysql \
+  sh -c 'mysql -u root -p"'${MYSQL_ROOT_PASSWORD:-github_smart_root_password}'"' < create_tables.sql
+```
+
+## Project structure
+
+```
+github-smart/
+├── public/                  # Web root
+├── src/                     # PHP source
+├── config/                  # App/env config (runtime .env generated here)
+├── scripts/                 # Utility scripts
+├── docker/                  # Docker configs (nginx, supervisor, entrypoint)
+├── docker-compose.yml       # Local compose (app + mysql)
+├── Dockerfile               # Production image (php-fpm + nginx)
+├── deploy.sh                # One-touch GHCR deploy
+└── create_tables.sql        # Database schema
+```
+
+## Troubleshooting
+
+- Cannot pull from GHCR: ensure you are logged in and the token has `read:packages`.
+- App cannot connect to DB: verify `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
+- Port in use: change `APP_PORT` before running `deploy.sh`.
+
+## License
+
+MIT
+
 # 🚀 GitHub Smart - Modern Issue Management System
 
 > **Production-ready PHP application for managing GitHub issues with advanced analytics, filtering, and project management capabilities.**
