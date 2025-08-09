@@ -1,54 +1,49 @@
+version: "3.9"
+
 services:
   app:
-    image: ghcr.io/evolvus/github-smart:latest
-    ports:
-      - "8082:8080"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/syneca/github-smart:latest
+    container_name: github-smart-app
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     environment:
-      - APACHE_DOCUMENT_ROOT=/var/www/html/public
-      - APP_ENV=production
-      - APP_DEBUG=false
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_NAME=project_management
-      - DB_USER=github_smart_user
-      - DB_PASSWORD=github_smart_1754640292
-    env_file:
-      - docker.env
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      APP_ENV: production
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: project_management
+      DB_USER: github_smart_user
+      DB_PASSWORD: github_smart_password
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "8081:8080"
     volumes:
-      - ./data:/var/www/html/data
+      - ./logs:/var/www/html/logs
+    entrypoint: ["/bin/sh", "/var/www/html/docker/entrypoint.sh"]
+    command: ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
 
   mysql:
     image: mysql:8.0
+    container_name: github-smart-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: github_smart_root_1754631318
+      MYSQL_ROOT_PASSWORD: github_smart_root_password
       MYSQL_DATABASE: project_management
       MYSQL_USER: github_smart_user
-      MYSQL_PASSWORD: github_smart_1754631318
-    env_file:
-      - docker.env
+      MYSQL_PASSWORD: github_smart_password
     ports:
-      - "3307:3306"
+      - "3308:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./create_tables.sql:/docker-entrypoint-initdb.d/01-create-tables.sql:ro
-    restart: unless-stopped
+      - db_data:/var/lib/mysql
+      - ./create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pgithub_smart_root_1754631318"]
-      timeout: 10s
-      retries: 15
-      start_period: 60s
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pgithub_smart_root_password"]
       interval: 10s
-    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=256M
+      timeout: 5s
+      retries: 10
 
 volumes:
-  mysql_data: 
+  db_data:
+
+

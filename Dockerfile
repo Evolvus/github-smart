@@ -1,83 +1,47 @@
-# Multi-stage build for production
-FROM composer:2.6 AS composer
+# Multi-service app image: Nginx + PHP-FPM + app code
 
-# Copy composer files
+FROM composer:2 AS vendor
+WORKDIR /app
+
+# Only copy composer files first for better caching
 COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts --no-progress
 
-# Install dependencies
-RUN composer install --no-dev --optimize-autoloader --no-scripts
+# Final image
+FROM php:8.2-fpm-alpine
 
-# Production stage
-FROM php:8.1-apache
+ENV APP_ENV=production \
+    COMPOSER_ALLOW_SUPERUSER=1 \
+    PHP_MEMORY_LIMIT=256M \
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    libzip-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libxml2-dev \
-    libcurl4-openssl-dev \
-    git \
-    unzip \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install system deps, nginx, supervisor, and PHP extensions
+RUN set -eux; \
+    apk add --no-cache bash curl nginx supervisor; \
+    docker-php-ext-install pdo pdo_mysql mysqli; \
+    mkdir -p /run/nginx
 
-# Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
-    pdo_mysql \
-    zip \
-    gd \
-    curl \
-    xml
-
-# Set working directory
 WORKDIR /var/www/html
 
-# Copy application files
-COPY . .
+# Copy app source
+COPY . /var/www/html
 
-# Copy vendor directory from composer stage
-COPY --from=composer /app/vendor ./vendor
+# Copy vendor from composer stage
+COPY --from=vendor /app/vendor /var/www/html/vendor
 
-# Create logs directory if it doesn't exist
-RUN mkdir -p /var/www/html/logs
+# Nginx and Supervisor configuration
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/supervisord.conf /etc/supervisord.conf
 
-# Create config log file and set proper permissions (as root)
-RUN touch /var/www/html/config/app.log \
-    && chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html \
-    && chmod -R 777 /var/www/html/logs \
-    && chmod 666 /var/www/html/config/app.log
+# Permissions
+RUN addgroup -g 1000 -S www && adduser -u 1000 -S www -G www; \
+    chown -R www:www /var/www/html; \
+    find /var/www/html -type f -exec chmod 0644 {} \; ; \
+    find /var/www/html -type d -exec chmod 0755 {} \; ; \
+    chmod -R 0775 /var/www/html/logs || true
 
-# Configure Apache document root
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-# Enable mod_rewrite
-RUN a2enmod rewrite
-
-# Security: Disable Apache version and server info
-RUN echo "ServerTokens Prod" >> /etc/apache2/apache2.conf \
-    && echo "ServerSignature Off" >> /etc/apache2/apache2.conf
-
-# Create non-root user for security
-RUN useradd -m -s /bin/bash appuser \
-    && usermod -a -G www-data appuser
-
-# Configure Apache to run as non-root user
-RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
-    && sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8080>/' /etc/apache2/sites-available/000-default.conf
-
-# Expose port 8080 (non-privileged port)
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/ || exit 1
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
 
-# Start Apache as non-root user
-USER appuser
-CMD ["apache2-foreground"] 
+
