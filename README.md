@@ -38,11 +38,7 @@ No extra setup required for public repos. For private repos, ensure Actions has 
 
 This runs the app using the latest image from GHCR and starts a MySQL container if one is not running.
 
-1) Authenticate to GHCR (if your repo is private):
-```bash
-export GHCR_USER=<github-username>
-export GHCR_TOKEN=<PAT with read:packages>
-```
+1) GHCR authentication is not required (package is public). Skip login.
 
 2) Set optional app/database variables (or use defaults):
 ```bash
@@ -53,7 +49,7 @@ export DB_PASSWORD=github_smart_password
 export GITHUB_TOKEN=<your_github_token_optional>
 ```
 
-3) Deploy:
+2) Deploy:
 ```bash
 ./deploy.sh
 ```
