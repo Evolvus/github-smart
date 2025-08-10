@@ -139,12 +139,15 @@ require_once 'bootstrap.php';
                         <li class="nav-item">
                             <a class="nav-link" href="status-board.php">Status Board</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="customer.php">Customers</a>
-                        </li>
-                        <!-- <li class="nav-item">
-                            <a class="nav-link" href="bucket.php">Bucket</a>
-                        </li> -->
+                                    <li class="nav-item">
+                <a class="nav-link" href="customer.php">Customers</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="project-status.php">Project Status</a>
+            </li>
+            <!-- <li class="nav-item">
+                <a class="nav-link" href="bucket.php">Bucket</a>
+            </li> -->
                     </ul>
                 </div>
             </div>

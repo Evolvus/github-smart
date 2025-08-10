@@ -154,6 +154,151 @@ class GitHubService
         }
     }
 
+    /**
+     * Get project board status for all issues in all projects
+     * This includes status field values for each issue in each project
+     */
+    public function getProjectBoardStatus(): array
+    {
+        try {
+            $org = $this->config->get('github.org');
+            
+            // First, get all projects
+            $data = $this->graphql->execute($this->getProjectsQuery($org));
+
+            if (!isset($data['organization']['projectsV2']['nodes'])) {
+                return [];
+            }
+
+            $projectStatuses = [];
+            
+            // For each project, fetch all items with their status field values
+            foreach ($data['organization']['projectsV2']['nodes'] as $project) {
+                if (empty($project) || $project['closed']) {
+                    continue;
+                }
+                
+                $projectId = $project['id'];
+                $hasNextPage = true;
+                $endCursor = null;
+                
+                while ($hasNextPage) {
+                    try {
+                        $itemsData = $this->graphql->execute(
+                            $this->getProjectItemsWithStatusQuery($projectId, $endCursor)
+                        );
+                    } catch (GitHubGraphQLException $e) {
+                        $this->logger->warning(
+                            'GraphQL API returned errors for project items with status',
+                            [
+                                'errors' => $e->getErrors(),
+                                'project_id' => $projectId,
+                            ]
+                        );
+                        break;
+                    }
+
+                    if (isset($itemsData['node']['items'])) {
+                        $items = $itemsData['node']['items'];
+                        $pageInfo = $items['pageInfo'];
+                        
+                        foreach ($items['nodes'] as $item) {
+                            if (empty($item) || empty($item['content']) || $item['content']['closed']) {
+                                continue;
+                            }
+                            
+                            $issueId = $item['content']['id'];
+                            $itemId = $item['id'];
+                            
+                            // Extract status field values
+                            $statusData = $this->extractStatusFieldValues($item['fieldValues']);
+                            
+                            $projectStatuses[$issueId] = [
+                                'project_id' => $project['id'],
+                                'project_title' => $project['title'],
+                                'project_url' => $project['url'],
+                                'item_id' => $itemId,
+                                'status_fields' => $statusData
+                            ];
+                        }
+                        
+                        $hasNextPage = $pageInfo['hasNextPage'];
+                        $endCursor = $pageInfo['endCursor'];
+                    } else {
+                        $hasNextPage = false;
+                    }
+                }
+            }
+
+            return $projectStatuses;
+        } catch (GitHubGraphQLException $e) {
+            $this->logger->warning('GraphQL API failed for project board status', [
+                'error' => $e->getMessage(),
+                'errors' => $e->getErrors(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Extract status field values from project item field values
+     */
+    private function extractStatusFieldValues(array $fieldValues): array
+    {
+        $statusFields = [];
+        
+        foreach ($fieldValues as $fieldValue) {
+            if (empty($fieldValue)) {
+                continue;
+            }
+            
+            // Handle different types of field values
+            if (isset($fieldValue['field']['name'])) {
+                $fieldName = $fieldValue['field']['name'];
+                $fieldId = $fieldValue['field']['id'];
+                
+                // Handle status field (single select)
+                if (isset($fieldValue['option'])) {
+                    $statusFields[] = [
+                        'field_id' => $fieldId,
+                        'field_name' => $fieldName,
+                        'value' => $fieldValue['option']['name'],
+                        'color' => $fieldValue['option']['color'] ?? null
+                    ];
+                }
+                // Handle text field
+                elseif (isset($fieldValue['text'])) {
+                    $statusFields[] = [
+                        'field_id' => $fieldId,
+                        'field_name' => $fieldName,
+                        'value' => $fieldValue['text'],
+                        'color' => null
+                    ];
+                }
+                // Handle number field
+                elseif (isset($fieldValue['number'])) {
+                    $statusFields[] = [
+                        'field_id' => $fieldId,
+                        'field_name' => $fieldName,
+                        'value' => (string)$fieldValue['number'],
+                        'color' => null
+                    ];
+                }
+                // Handle date field
+                elseif (isset($fieldValue['date'])) {
+                    $statusFields[] = [
+                        'field_id' => $fieldId,
+                        'field_name' => $fieldName,
+                        'value' => $fieldValue['date'],
+                        'color' => null
+                    ];
+                }
+            }
+        }
+        
+        return $statusFields;
+    }
+
     private function getProjectsQuery(string $org): string
     {
         return <<<QUERY
@@ -199,6 +344,86 @@ class GitHubService
                                         }
                                     }
                                 } 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        QUERY;
+    }
+
+    private function getProjectItemsWithStatusQuery(string $projectId, ?string $cursor = null): string
+    {
+        $afterClause = $cursor ? '"' . $cursor . '"' : 'null';
+        return <<<QUERY
+        {
+            node(id: "{$projectId}") {
+                ... on ProjectV2 {
+                    items(first: 100, after: {$afterClause}) {
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                        nodes {
+                            id
+                            content { 
+                                ... on Issue { 
+                                    id
+                                    title 
+                                    closed
+                                    updatedAt
+                                    labels(first: 10) {
+                                        nodes {
+                                            name
+                                            color
+                                        }
+                                    }
+                                } 
+                            }
+                            fieldValues(first: 20) {
+                                nodes {
+                                    ... on ProjectV2ItemFieldSingleSelectValue {
+                                        field {
+                                            ... on ProjectV2SingleSelectField {
+                                                id
+                                                name
+                                            }
+                                        }
+                                        option {
+                                            id
+                                            name
+                                            color
+                                        }
+                                    }
+                                    ... on ProjectV2ItemFieldTextValue {
+                                        field {
+                                            ... on ProjectV2Field {
+                                                id
+                                                name
+                                            }
+                                        }
+                                        text
+                                    }
+                                    ... on ProjectV2ItemFieldNumberValue {
+                                        field {
+                                            ... on ProjectV2Field {
+                                                id
+                                                name
+                                            }
+                                        }
+                                        number
+                                    }
+                                    ... on ProjectV2ItemFieldDateValue {
+                                        field {
+                                            ... on ProjectV2Field {
+                                                id
+                                                name
+                                            }
+                                        }
+                                        date
+                                    }
+                                }
                             }
                         }
                     }

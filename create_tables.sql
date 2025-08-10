@@ -110,6 +110,27 @@ CREATE TABLE IF NOT EXISTS gh_audit (
     INDEX idx_end_time (end_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Create gh_issue_project_status table for storing project board status
+CREATE TABLE IF NOT EXISTS gh_issue_project_status (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    gh_node_id VARCHAR(255) NOT NULL,
+    project_id VARCHAR(255) NOT NULL,
+    project_title VARCHAR(500) NOT NULL,
+    project_url TEXT,
+    status_field_id VARCHAR(255),
+    status_field_name VARCHAR(255),
+    status_value VARCHAR(255),
+    status_color VARCHAR(7),
+    item_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_gh_node_id (gh_node_id),
+    INDEX idx_project_id (project_id),
+    INDEX idx_status_field_name (status_field_name),
+    INDEX idx_status_value (status_value),
+    UNIQUE KEY uk_issue_project (gh_node_id, project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Insert some sample data for testing (only if table is empty)
 INSERT IGNORE INTO expense_perm_matrix (emp_id, view_perm, create_perm, edit_perm, pay_perm, auth_perm, del_perm) 
 VALUES (0, 1, 1, 1, 1, 1, 1);

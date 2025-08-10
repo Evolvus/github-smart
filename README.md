@@ -165,6 +165,8 @@ curl -X POST http://localhost:8000/api/getGHIssues.php
 - `POST /api/getGHIssues.php` - Sync GitHub issues
 - `GET /api/getGHDash.php` - Dashboard data
 - `GET /api/getProjects.php` - List projects
+- `POST /api/getProjectBoardStatus.php` - Import project board status from GitHub
+- `GET /api/getProjectStatus.php` - Retrieve stored project board status
 
 ### Project Management
 - `POST /api/add_bucket.php` - Create bucket
@@ -174,6 +176,98 @@ curl -X POST http://localhost:8000/api/getGHIssues.php
 ### Issue Management
 - `POST /api/pin_issue.php` - Pin issue
 - `PUT /api/update_issue_bucket.php` - Move issue to bucket
+
+---
+
+## Project Board Status
+
+The application now supports tracking project board status for issues using GitHub ProjectsV2 API. This feature allows you to:
+
+- **Track Status Fields**: Monitor custom status fields (e.g., "In Progress", "Review", "Done") for each issue in each project
+- **Visual Dashboard**: View project board status in a dedicated dashboard with color-coded status values
+- **Real-time Sync**: Import the latest project board status from GitHub ProjectsV2
+- **Status Analytics**: See issue counts and assignee distribution by status
+
+### Features
+
+1. **Automatic Status Import**: When importing GitHub issues, project board status is automatically fetched and stored
+2. **Status Field Tracking**: Supports all GitHub ProjectsV2 field types (Single Select, Text, Number, Date)
+3. **Color-coded Display**: Status values are displayed with their GitHub-defined colors
+4. **Project-specific Views**: View status distribution for each project separately
+5. **Assignee Tracking**: See which assignees are working on issues in each status
+
+### Usage
+
+#### Import Project Board Status
+```bash
+# Import project board status from GitHub
+curl -X POST http://localhost:8081/api/getProjectBoardStatus.php
+```
+
+#### View Project Status Dashboard
+```
+http://localhost:8081/project-status.php
+```
+
+#### API Endpoints
+
+**Import Project Board Status:**
+```bash
+POST /api/getProjectBoardStatus.php
+```
+
+**Get All Project Status:**
+```bash
+GET /api/getProjectStatus.php?action=all
+```
+
+**Get Project Status Summary:**
+```bash
+GET /api/getProjectStatus.php?action=summary
+```
+
+**Get Issue-specific Project Status:**
+```bash
+GET /api/getProjectStatus.php?action=issue&gh_node_id=<node_id>
+```
+
+### Database Schema
+
+The project board status is stored in the `gh_issue_project_status` table:
+
+```sql
+CREATE TABLE gh_issue_project_status (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    gh_node_id VARCHAR(255) NOT NULL,
+    project_id VARCHAR(255) NOT NULL,
+    project_title VARCHAR(500) NOT NULL,
+    project_url TEXT,
+    status_field_id VARCHAR(255),
+    status_field_name VARCHAR(255),
+    status_value VARCHAR(255),
+    status_color VARCHAR(7),
+    item_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+### Status Field Types Supported
+
+- **Single Select Fields**: Status dropdowns with color-coded options
+- **Text Fields**: Custom text values
+- **Number Fields**: Numeric values
+- **Date Fields**: Date values
+
+### Integration with Existing Workflow
+
+The project board status import is automatically integrated with the existing GitHub issue import process. When you run the issue import, it will also:
+
+1. Fetch all projects from the organization
+2. Retrieve all items in each project with their field values
+3. Extract status field information for each issue
+4. Store the status data in the database
+5. Link status data to existing issues
 
 ---
 

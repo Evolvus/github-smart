@@ -298,6 +298,53 @@ try {
     // Insert unassigned project data
     insertUnassignedProjectData($pdo);
     
+    // Fetch and store project board status for all issues
+    write_log("Starting project board status import...");
+    try {
+        // Use the new project board status functionality
+        require_once(__DIR__ . '/getProjectBoardStatus.php');
+        
+        // Fetch project board status from GitHub
+        $projectStatuses = fetchProjectBoardStatus($GITHUB_ORG, $GITHUB_API_TOKEN, $APP_NAME);
+        
+        $processedCount = 0;
+        $errorCount = 0;
+        
+        // Process each project status
+        foreach ($projectStatuses as $issueId => $projectData) {
+            try {
+                // Get the issue node ID from our database
+                $issueNodeId = getIssueNodeId($pdo, $issueId);
+                
+                if (!$issueNodeId) {
+                    write_log("Warning: Issue node ID not found for GitHub issue ID: {$issueId}");
+                    $errorCount++;
+                    continue;
+                }
+                
+                // Insert project board status
+                $success = insertProjectBoardStatus($pdo, $issueNodeId, $projectData, $projectData['status_fields']);
+                
+                if ($success) {
+                    $processedCount++;
+                    write_log("Processed project board status for issue node ID: {$issueNodeId} in project: {$projectData['project_title']}");
+                } else {
+                    $errorCount++;
+                    write_log("Failed to process project board status for issue node ID: {$issueNodeId}");
+                }
+                
+            } catch (Exception $e) {
+                $errorCount++;
+                write_log("Error processing project board status for issue ID {$issueId}: " . $e->getMessage());
+            }
+        }
+        
+        write_log("Project board status import completed: {$processedCount} processed, {$errorCount} errors");
+        
+    } catch (Exception $e) {
+        write_log("Error during project board status import: " . $e->getMessage());
+    }
+    
     $endTime = date("Y-m-d H:i:s");
     write_log("GitHub issues import completed at {$endTime}");
     
