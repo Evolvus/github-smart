@@ -584,6 +584,22 @@ function groupIssuesByProjectBoardStatus(projectData) {
     projectData.forEach(item => {
         // Only process Status field items (not Title or other fields)
         if (item.status_field_name === 'Status') {
+            // Construct the correct GitHub issue URL
+            let gh_id_url = '#';
+            if (item.repo && item.gh_id) {
+                // Extract owner and repo from repo_url or construct from repo name
+                if (item.repo_url) {
+                    // Extract owner/repo from repo_url (e.g., https://api.github.com/repos/Syneca/syneca-issue-tracker)
+                    const repoUrlMatch = item.repo_url.match(/repos\/([^\/]+\/[^\/]+)/);
+                    if (repoUrlMatch) {
+                        gh_id_url = `https://github.com/${repoUrlMatch[1]}/issues/${item.gh_id}`;
+                    }
+                } else if (item.repo) {
+                    // Fallback: assume Syneca organization
+                    gh_id_url = `https://github.com/Syneca/${item.repo}/issues/${item.gh_id}`;
+                }
+            }
+            
             const issue = {
                 gh_id: item.gh_id,
                 issue_text: item.issue_text || 'Unknown Issue',
@@ -594,7 +610,7 @@ function groupIssuesByProjectBoardStatus(projectData) {
                 status_color: item.status_color,
                 project_title: item.project_title,
                 project_url: item.project_url,
-                gh_id_url: `https://github.com/issues/${item.gh_id}`
+                gh_id_url: gh_id_url
             };
             issues.push(issue);
         }

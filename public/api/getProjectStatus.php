@@ -27,7 +27,9 @@ function getProjectBoardStatus($pdo) {
                 i.gh_id,
                 i.issue_text,
                 i.assignee,
-                i.gh_state
+                i.gh_state,
+                i.repo,
+                i.repo_url
             FROM gh_issue_project_status ips
             LEFT JOIN gh_issues i ON ips.gh_node_id = i.gh_node_id
             ORDER BY ips.project_title, ips.status_field_name, ips.status_value
@@ -60,7 +62,9 @@ function getIssueProjectStatus($pdo, $ghNodeId) {
                 i.gh_id,
                 i.issue_text,
                 i.assignee,
-                i.gh_state
+                i.gh_state,
+                i.repo,
+                i.repo_url
             FROM gh_issue_project_status ips
             LEFT JOIN gh_issues i ON ips.gh_node_id = i.gh_node_id
             WHERE ips.gh_node_id = :gh_node_id
