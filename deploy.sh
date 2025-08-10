@@ -1,9 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Default values
 IMAGE="ghcr.io/evolvus/github-smart:latest"
 APP_NAME="github-smart-app"
 MYSQL_NAME="github-smart-mysql"
+GITHUB_ORG=""
+GITHUB_TOKEN=""
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -o|--org)
+      GITHUB_ORG="$2"
+      shift 2
+      ;;
+    -t|--token)
+      GITHUB_TOKEN="$2"
+      shift 2
+      ;;
+    -p|--port)
+      APP_PORT="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: $0 [-o|--org ORGANIZATION] [-t|--token TOKEN] [-p|--port PORT]"
+      echo ""
+      echo "Options:"
+      echo "  -o, --org ORGANIZATION    GitHub organization name (required for API testing)"
+      echo "  -t, --token TOKEN         GitHub personal access token (required for API testing)"
+      echo "  -p, --port PORT           Application port (default: 8081)"
+      echo "  -h, --help                Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0 -o Syneca -t ghp_xxxxxxxxxxxxxxxxxxxx"
+      echo "  $0 --org Syneca --token ghp_xxxxxxxxxxxxxxxxxxxx --port 9090"
+      echo "  $0  # Run without GitHub integration"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use -h or --help for usage information"
+      exit 1
+      ;;
+  esac
+done
 
 
 
@@ -61,6 +102,7 @@ docker run -d \
   -e DB_USER=${DB_USER:-github_smart_user} \
   -e DB_PASSWORD=${DB_PASSWORD:-github_smart_password} \
   -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
+  -e GITHUB_ORG=${GITHUB_ORG:-} \
   -v github-smart-logs:/var/www/html/logs \
   --link ${MYSQL_NAME}:mysql \
   "$IMAGE"
@@ -76,7 +118,7 @@ for i in {1..30}; do
 done
 
 echo "Testing GitHub issues API..."
-if [ -n "${GITHUB_TOKEN:-}" ]; then
+if [ -n "${GITHUB_TOKEN}" ]; then
   echo "GitHub token provided, testing API call..."
   api_response=$(curl -s -X POST http://localhost:${APP_PORT:-8081}/api/getGHIssues.php 2>/dev/null || echo "API call failed")
   if echo "$api_response" | grep -q "success\|issues\|data\|GitHub API token not configured"; then
@@ -94,7 +136,7 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   fi
 else
   echo "ℹ️  No GitHub token provided, skipping API test"
-  echo "ℹ️  To test GitHub integration, set GITHUB_TOKEN environment variable"
+  echo "ℹ️  To test GitHub integration, use: $0 -o ORGANIZATION -t TOKEN"
 fi
 
 echo "🎉 Deployment completed successfully!"
