@@ -28,13 +28,13 @@ curl -O https://raw.githubusercontent.com/Evolvus/github-smart/main/deploy.sh
 chmod +x deploy.sh
 
 # Deploy with GitHub integration
-./deploy.sh -o Syneca -t ghp_your_token_here
+./deploy.sh -o your_org -t ghp_your_token_here
 
 # Deploy without GitHub integration
 ./deploy.sh
 
 # Deploy with custom port
-./deploy.sh -o Syneca -t ghp_your_token_here -p 9090
+./deploy.sh -o your_org -t ghp_your_token_here -p 9090
 ```
 
 #### Command Line Options
@@ -48,8 +48,8 @@ Options:
   -h, --help                Show help message
 
 Examples:
-  ./deploy.sh -o Syneca -t ghp_xxxxxxxxxxxxxxxxxxxx
-  ./deploy.sh --org Syneca --token ghp_xxxxxxxxxxxxxxxxxxxx --port 9090
+  ./deploy.sh -o your_org -t ghp_xxxxxxxxxxxxxxxxxxxx
+  ./deploy.sh --org your_org --token ghp_xxxxxxxxxxxxxxxxxxxx --port 9090
   ./deploy.sh  # Basic deployment without GitHub integration
 ```
 
