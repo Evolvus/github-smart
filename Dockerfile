@@ -30,7 +30,7 @@ COPY . /var/www/html
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
 # Nginx and Supervisor configuration
-COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx/default.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 
 # Permissions
