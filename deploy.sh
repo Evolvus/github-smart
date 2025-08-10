@@ -33,6 +33,13 @@ for i in {1..30}; do
   sleep 2
 done
 
+echo "Initializing database with create_tables.sql..."
+if curl -s https://raw.githubusercontent.com/Evolvus/github-smart/main/create_tables.sql | docker exec -i ${MYSQL_NAME} mysql -u root -p"${MYSQL_ROOT_PASSWORD:-github_smart_root_password}" "${DB_NAME:-project_management}"; then
+  echo "Database initialization completed successfully"
+else
+  echo "Warning: Database initialization failed, but continuing..."
+fi
+
 echo "Starting/Restarting app container..."
 docker rm -f ${APP_NAME} >/dev/null 2>&1 || true
 docker run -d \
