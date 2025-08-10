@@ -42,6 +42,10 @@ RUN addgroup -g 1000 -S www && adduser -u 1000 -S www -G www; \
 
 EXPOSE 8080
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+# Copy entrypoint script and make it executable
+COPY docker/entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+CMD ["/docker-entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
 
 
