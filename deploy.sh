@@ -5,12 +5,7 @@ IMAGE="ghcr.io/evolvus/github-smart:latest"
 APP_NAME="github-smart-app"
 MYSQL_NAME="github-smart-mysql"
 
-if [ -n "${GHCR_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
-  echo "Logging into ghcr.io with provided token..."
-  echo "${GHCR_TOKEN:-${GITHUB_TOKEN:-}}" | docker login ghcr.io -u "${GHCR_USER:-"$USER"}" --password-stdin
-else
-  echo "Public package: skipping ghcr.io login"
-fi
+
 
 echo "Pulling image $IMAGE..."
 docker pull "$IMAGE"
