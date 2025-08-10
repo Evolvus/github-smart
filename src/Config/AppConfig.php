@@ -23,9 +23,19 @@ class AppConfig
 
     private function loadEnvironmentVariables(): void
     {
-        if (file_exists(__DIR__ . '/../../.env')) {
-            $dotenv = \Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
-            $dotenv->load();
+        // Try multiple possible locations for .env file
+        $possiblePaths = [
+            __DIR__ . '/../../.env',                    // Root directory
+            __DIR__ . '/../../config/.env',             // Config directory
+            __DIR__ . '/../../../config/.env'           // Alternative config path
+        ];
+        
+        foreach ($possiblePaths as $envPath) {
+            if (file_exists($envPath)) {
+                $dotenv = \Dotenv\Dotenv::createImmutable(dirname($envPath));
+                $dotenv->load();
+                break;
+            }
         }
     }
 
