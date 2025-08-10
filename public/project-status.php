@@ -3,7 +3,7 @@ session_name("Project");
 session_start();
 require_once(__DIR__ . '/../config/database.php');
 require_once(__DIR__ . '/../config/app.php');
-require_once(__DIR__ . '/utilities_project.php');
+require_once(__DIR__ . '/../api/utilities_project.php');
 
 $pdo = getPDOConnection();
 date_default_timezone_set("Asia/Kolkata");
@@ -23,7 +23,7 @@ function getProjectStatusData($pdo) {
                 GROUP_CONCAT(DISTINCT i.assignee) as assignees
             FROM gh_issue_project_status ips
             LEFT JOIN gh_issues i ON ips.gh_node_id = i.gh_node_id
-            GROUP BY ips.project_id, ips.status_field_name, ips.status_value
+            GROUP BY ips.project_id, ips.project_title, ips.project_url, ips.status_field_name, ips.status_value, ips.status_color
             ORDER BY ips.project_title, ips.status_field_name, ips.status_value
         ");
         
@@ -135,7 +135,7 @@ $projectStatusData = getProjectStatusData($pdo);
                                     <div class="col-md-4 col-lg-3">
                                         <div class="card status-card">
                                             <div class="card-body">
-                                                <h6 class="card-title"><?php echo htmlspecialchars($status['status_field_name']); ?></h6>
+                                                <h6 class="card-title"><?php echo htmlspecialchars($status['status_value']); ?></h6>
                                                 <div class="status-value" style="background-color: <?php echo $status['status_color'] ? '#' . $status['status_color'] : '#6c757d'; ?>">
                                                     <?php echo htmlspecialchars($status['status_value']); ?>
                                                 </div>

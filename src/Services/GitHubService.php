@@ -211,7 +211,7 @@ class GitHubService
                             $itemId = $item['id'];
                             
                             // Extract status field values
-                            $statusData = $this->extractStatusFieldValues($item['fieldValues']);
+                            $statusData = $this->extractStatusFieldValues($item['fieldValues']['nodes'] ?? []);
                             
                             $projectStatuses[$issueId] = [
                                 'project_id' => $project['id'],
@@ -258,12 +258,12 @@ class GitHubService
                 $fieldId = $fieldValue['field']['id'];
                 
                 // Handle status field (single select)
-                if (isset($fieldValue['option'])) {
+                if (isset($fieldValue['name'])) {
                     $statusFields[] = [
                         'field_id' => $fieldId,
                         'field_name' => $fieldName,
-                        'value' => $fieldValue['option']['name'],
-                        'color' => $fieldValue['option']['color'] ?? null
+                        'value' => $fieldValue['name'],
+                        'color' => $fieldValue['color'] ?? null
                     ];
                 }
                 // Handle text field
@@ -390,11 +390,8 @@ class GitHubService
                                                 name
                                             }
                                         }
-                                        option {
-                                            id
-                                            name
-                                            color
-                                        }
+                                        name
+                                        color
                                     }
                                     ... on ProjectV2ItemFieldTextValue {
                                         field {

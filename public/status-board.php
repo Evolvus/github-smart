@@ -278,51 +278,97 @@ function loadStatusBoard() {
     
     document.getElementById('status-board').innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading project status board...</div>';
     
-        // Get both project status and issues data
-    Promise.all([
-        fetch(`api/getProjectStatus.php?projectId=${currentProject}`),
-        fetch(`api/getGHDash.php?action=by_project&projectId=${currentProject}`)
-    ])
-    .then(responses => Promise.all(responses.map(r => r.json())))
-    .then(([projectData, issuesData]) => {
-        const projectStatus = projectData.project?.itemsByStatus || {};
-        const issues = issuesData.data || [];
-        
-        console.log('Project status data:', projectStatus);
-        console.log('Issues data:', issues.length, 'issues');
-        
-        // Show project information
-        if (projectData.project) {
-            showProjectInfo(projectData.project);
-        }
-        
-        // Use actual project status if available, otherwise use intelligent mapping
-        allIssues = mergeProjectStatusWithIssues(issues, projectStatus);
-        console.log('Processed issues:', allIssues.length);
-        console.log('Sample issue:', allIssues[0]);
-        renderStatusBoard();
-    })
-    .catch(error => {
-        console.error('Error loading status board:', error);
-        document.getElementById('status-board').innerHTML = '<div class="empty-state">Error loading project status. Please try again.</div>';
-    });
+    // Get project board status data
+    fetch(`api/getProjectStatus.php?action=all`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Project board status data:', data);
+            
+            // Store all project data globally
+            window.allProjectData = data;
+            
+            // Filter data for the selected project
+            const projectData = data.filter(item => item.project_id === currentProject);
+            
+            if (projectData.length === 0) {
+                document.getElementById('status-board').innerHTML = '<div class="empty-state">No project board status data available for this project. Please import data from GitHub first.</div>';
+                return;
+            }
+            
+            // Group issues by their actual project board status
+            allIssues = groupIssuesByProjectBoardStatus(projectData);
+            console.log('Processed issues:', allIssues.length);
+            console.log('Sample issue:', allIssues[0]);
+            
+            // Show project information
+            if (projectData.length > 0) {
+                showProjectInfoFromStatusData(projectData[0]);
+            }
+            
+            renderStatusBoard();
+        })
+        .catch(error => {
+            console.error('Error loading status board:', error);
+            document.getElementById('status-board').innerHTML = '<div class="empty-state">Error loading project status. Please try again.</div>';
+        });
 }
 
 function renderStatusBoard() {
     const board = document.getElementById('status-board');
     
-    // Define project status columns
-    const statusColumns = [
-        { id: 'backlog', title: 'Backlog', class: 'status-backlog', icon: 'fas fa-list' },
-        { id: 'ready', title: 'Ready', class: 'status-ready', icon: 'fas fa-check-circle' },
-        { id: 'in-progress', title: 'In Progress', class: 'status-in-progress', icon: 'fas fa-play-circle' },
-        { id: 'review', title: 'Review', class: 'status-review', icon: 'fas fa-search' },
-        { id: 'done', title: 'Done', class: 'status-done', icon: 'fas fa-flag-checkered' }
-    ];
+    // Get unique status values from the actual project board data
+    const statusValues = [...new Set(allIssues.map(issue => issue.status_value))];
     
-    // Group issues by project status (this would come from GitHub project data)
-    // For now, we'll simulate this based on issue state and some logic
-    const groupedIssues = groupIssuesByProjectStatus(allIssues);
+    // Create dynamic status columns based on actual data
+    const statusColumns = statusValues.map(statusValue => {
+        const statusId = statusValue.toLowerCase().replace(/\s+/g, '-');
+        let statusClass = 'status-backlog'; // default
+        let icon = 'fas fa-list'; // default
+        
+        // Map status values to CSS classes and icons
+        switch (statusValue.toLowerCase()) {
+            case 'backlog':
+                statusClass = 'status-backlog';
+                icon = 'fas fa-list';
+                break;
+            case 'ready':
+                statusClass = 'status-ready';
+                icon = 'fas fa-check-circle';
+                break;
+            case 'in progress':
+                statusClass = 'status-in-progress';
+                icon = 'fas fa-play-circle';
+                break;
+            case 'in review':
+                statusClass = 'status-review';
+                icon = 'fas fa-search';
+                break;
+            case 'done':
+                statusClass = 'status-done';
+                icon = 'fas fa-flag-checkered';
+                break;
+            default:
+                statusClass = 'status-backlog';
+                icon = 'fas fa-tag';
+        }
+        
+        return {
+            id: statusId,
+            title: statusValue,
+            class: statusClass,
+            icon: icon
+        };
+    });
+    
+    // Group issues by their actual project board status
+    const groupedIssues = {};
+    allIssues.forEach(issue => {
+        const statusId = issue.status_value.toLowerCase().replace(/\s+/g, '-');
+        if (!groupedIssues[statusId]) {
+            groupedIssues[statusId] = [];
+        }
+        groupedIssues[statusId].push(issue);
+    });
     
     let boardHTML = '';
     
@@ -446,25 +492,32 @@ function intelligentStatusMapping(issues) {
 
 function updateStatusSummary(groupedIssues) {
     document.getElementById('status-summary').style.display = 'block';
-    document.getElementById('backlog-count').textContent = groupedIssues.backlog?.length || 0;
-    document.getElementById('ready-count').textContent = groupedIssues.ready?.length || 0;
-    document.getElementById('in-progress-count').textContent = groupedIssues['in-progress']?.length || 0;
-    document.getElementById('review-count').textContent = groupedIssues.review?.length || 0;
-    document.getElementById('done-count').textContent = groupedIssues.done?.length || 0;
+    
+    // Update the summary with actual status values
+    const statusSummary = document.getElementById('status-summary');
+    const summaryBody = statusSummary.querySelector('.card-body');
+    
+    let summaryHTML = '<div class="row">';
+    let totalIssues = 0;
+    
+    Object.keys(groupedIssues).forEach(statusId => {
+        const count = groupedIssues[statusId].length;
+        totalIssues += count;
+        const statusName = groupedIssues[statusId][0]?.status_value || statusId.replace(/-/g, ' ');
+        
+        summaryHTML += `
+            <div class="col-md-2 text-center">
+                <div class="badge bg-secondary fs-6">${statusName}</div>
+                <div class="fw-bold">${count}</div>
+            </div>
+        `;
+    });
+    
+    summaryHTML += '</div>';
+    summaryBody.innerHTML = summaryHTML;
     
     // Show note about data source
-    const hasProjectData = allIssues.some(issue => issue.projectStatus && issue.projectStatus !== 'backlog');
-    const projectDataCount = allIssues.filter(issue => issue.projectStatus && issue.projectStatus !== 'backlog').length;
-    const totalIssues = allIssues.length;
-    
-    let note = '';
-    if (hasProjectData && projectDataCount === totalIssues) {
-        note = `Using actual GitHub ProjectV2 status data (${projectDataCount}/${totalIssues} issues)`;
-    } else if (hasProjectData) {
-        note = `Using GitHub ProjectV2 data for ${projectDataCount}/${totalIssues} issues, intelligent mapping for others`;
-    } else {
-        note = `Using intelligent mapping (${totalIssues} issues not assigned to GitHub project)`;
-    }
+    const note = `Using actual GitHub ProjectsV2 status data (${totalIssues} issues)`;
     document.getElementById('status-note').textContent = note;
 }
 
@@ -522,10 +575,77 @@ function showProjectInfo(project) {
     projectInfo.style.display = 'block';
 }
 
+function groupIssuesByProjectBoardStatus(projectData) {
+    const issues = [];
+    
+    projectData.forEach(item => {
+        // Only process Status field items (not Title or other fields)
+        if (item.status_field_name === 'Status') {
+            const issue = {
+                gh_id: item.gh_id,
+                issue_text: item.issue_text || 'Unknown Issue',
+                assignee: item.assignee || 'Unassigned',
+                gh_state: item.gh_state || 'open',
+                projectStatus: item.status_value.toLowerCase().replace(/\s+/g, '-'),
+                status_value: item.status_value,
+                status_color: item.status_color,
+                project_title: item.project_title,
+                project_url: item.project_url,
+                gh_id_url: `https://github.com/issues/${item.gh_id}`
+            };
+            issues.push(issue);
+        }
+    });
+    
+    return issues;
+}
+
+function showProjectInfoFromStatusData(projectData) {
+    const projectInfo = document.getElementById('project-info');
+    const projectDetails = document.getElementById('project-details');
+    
+    // Group by status to get counts
+    const statusCounts = {};
+    const allProjectData = window.allProjectData || [];
+    
+    allProjectData.forEach(item => {
+        if (item.status_field_name === 'Status') {
+            const status = item.status_value;
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        }
+    });
+    
+    let detailsHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Project:</strong> ${projectData.project_title}<br>
+                <strong>Project URL:</strong> <a href="${projectData.project_url}" target="_blank">View on GitHub</a><br>
+                <strong>Data Source:</strong> GitHub ProjectsV2
+            </div>
+            <div class="col-md-6">
+                <strong>Total Items:</strong> ${Object.values(statusCounts).reduce((a, b) => a + b, 0)}<br>
+                <strong>Status Distribution:</strong><br>
+    `;
+    
+    // Show status distribution
+    Object.keys(statusCounts).forEach(status => {
+        const count = statusCounts[status];
+        detailsHTML += `&nbsp;&nbsp;&nbsp;&nbsp;• ${status}: ${count}<br>`;
+    });
+    
+    detailsHTML += `
+            </div>
+        </div>
+    `;
+    
+    projectDetails.innerHTML = detailsHTML;
+    projectInfo.style.display = 'block';
+}
+
 function createIssueCard(issue) {
     const assignee = issue.assignee || 'Unassigned';
-    const repo = issue.repo || 'Unknown';
     const statusClass = issue.gh_state === 'open' ? 'border-success' : 'border-danger';
+    const statusColor = issue.status_color ? `#${issue.status_color}` : '#6c757d';
     
     return `
         <div class="issue-card ${statusClass}" data-url="${issue.gh_id_url}">
@@ -534,11 +654,11 @@ function createIssueCard(issue) {
                 <div class="issue-assignee">
                     <i class="fas fa-user"></i> ${assignee}
                 </div>
-                <div class="issue-repo">
-                    <i class="fas fa-code-branch"></i> ${repo}
-                </div>
                 <div class="issue-id">
                     <i class="fas fa-hashtag"></i> #${issue.gh_id}
+                </div>
+                <div class="issue-status" style="color: ${statusColor}; font-weight: bold;">
+                    <i class="fas fa-tag"></i> ${issue.status_value}
                 </div>
             </div>
         </div>
