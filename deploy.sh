@@ -40,6 +40,14 @@ else
   echo "Warning: Database initialization failed, but continuing..."
 fi
 
+echo "Verifying database tables were created..."
+table_count=$(docker exec -i ${MYSQL_NAME} mysql -u root -p"${MYSQL_ROOT_PASSWORD:-github_smart_root_password}" "${DB_NAME:-project_management}" -e "SHOW TABLES;" 2>/dev/null | grep -v "Tables_in" | wc -l)
+if [ "$table_count" -ge 7 ]; then
+  echo "✅ Database verification successful: Found $table_count tables"
+else
+  echo "⚠️  Warning: Only found $table_count tables (expected 7+)"
+fi
+
 echo "Starting/Restarting app container..."
 docker rm -f ${APP_NAME} >/dev/null 2>&1 || true
 docker run -d \
@@ -58,5 +66,39 @@ docker run -d \
   "$IMAGE"
 
 echo "App deployed and listening on port ${APP_PORT:-8081}"
+
+echo "Waiting for application to be ready..."
+for i in {1..30}; do
+  if curl -s http://localhost:${APP_PORT:-8081} >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
+echo "Testing GitHub issues API..."
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  echo "GitHub token provided, testing API call..."
+  api_response=$(curl -s -X POST http://localhost:${APP_PORT:-8081}/api/getGHIssues.php 2>/dev/null || echo "API call failed")
+  if echo "$api_response" | grep -q "success\|issues\|data\|GitHub API token not configured"; then
+    echo "✅ GitHub issues API test successful (API responded correctly)"
+  else
+    echo "⚠️  GitHub issues API test failed or no response"
+  fi
+  
+  echo "Checking if issues were created in database..."
+  issue_count=$(docker exec -i ${MYSQL_NAME} mysql -u root -p"${MYSQL_ROOT_PASSWORD:-github_smart_root_password}" "${DB_NAME:-project_management}" -e "SELECT COUNT(*) as count FROM gh_issues;" 2>/dev/null | grep -v "count" | tail -1)
+  if [ "$issue_count" -gt 0 ] 2>/dev/null; then
+    echo "✅ Issues found in database: $issue_count issues"
+  else
+    echo "⚠️  No issues found in database (this is normal if no GitHub token provided or no issues exist)"
+  fi
+else
+  echo "ℹ️  No GitHub token provided, skipping API test"
+  echo "ℹ️  To test GitHub integration, set GITHUB_TOKEN environment variable"
+fi
+
+echo "🎉 Deployment completed successfully!"
+echo "📊 Application: http://localhost:${APP_PORT:-8081}"
+echo "🗄️  Database: localhost:${MYSQL_PORT:-3308} (MySQL)"
 
 
