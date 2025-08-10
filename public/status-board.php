@@ -319,11 +319,11 @@ function loadStatusBoard() {
 function renderStatusBoard() {
     const board = document.getElementById('status-board');
     
-    // Get unique status values from the actual project board data
-    const statusValues = [...new Set(allIssues.map(issue => issue.status_value))];
+    // Define the specific statuses we want to show in order
+    const desiredStatuses = ['Backlog', 'Ready', 'In progress', 'In review'];
     
-    // Create dynamic status columns based on actual data
-    const statusColumns = statusValues.map(statusValue => {
+    // Create status columns for only the desired statuses
+    const statusColumns = desiredStatuses.map(statusValue => {
         const statusId = statusValue.toLowerCase().replace(/\s+/g, '-');
         let statusClass = 'status-backlog'; // default
         let icon = 'fas fa-list'; // default
@@ -346,10 +346,6 @@ function renderStatusBoard() {
                 statusClass = 'status-review';
                 icon = 'fas fa-search';
                 break;
-            case 'done':
-                statusClass = 'status-done';
-                icon = 'fas fa-flag-checkered';
-                break;
             default:
                 statusClass = 'status-backlog';
                 icon = 'fas fa-tag';
@@ -363,14 +359,17 @@ function renderStatusBoard() {
         };
     });
     
-    // Group issues by their actual project board status
+    // Group issues by their actual project board status (only desired statuses)
     const groupedIssues = {};
     allIssues.forEach(issue => {
-        const statusId = issue.status_value.toLowerCase().replace(/\s+/g, '-');
-        if (!groupedIssues[statusId]) {
-            groupedIssues[statusId] = [];
+        // Only include issues with desired statuses
+        if (desiredStatuses.includes(issue.status_value)) {
+            const statusId = issue.status_value.toLowerCase().replace(/\s+/g, '-');
+            if (!groupedIssues[statusId]) {
+                groupedIssues[statusId] = [];
+            }
+            groupedIssues[statusId].push(issue);
         }
-        groupedIssues[statusId].push(issue);
     });
     
     let boardHTML = '';
