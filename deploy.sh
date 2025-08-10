@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="ghcr.io/${GITHUB_ORG:-syneca}/github-smart:latest"
+IMAGE="ghcr.io/evolvus/github-smart:latest"
 APP_NAME="github-smart-app"
 MYSQL_NAME="github-smart-mysql"
 
