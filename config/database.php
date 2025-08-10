@@ -1,4 +1,7 @@
 <?php
+// Include app.php for logging functions
+require_once __DIR__ . '/app.php';
+
 /* 
 session_start();
 if(!checkUserSession($_SESSION["user"]))

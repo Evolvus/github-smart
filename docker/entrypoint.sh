@@ -22,6 +22,7 @@ DB_ORANGEHRM=${DB_ORANGEHRM:-orange}
 
 # GitHub API
 GITHUB_TOKEN=${GITHUB_TOKEN:-}
+GITHUB_ORG=${GITHUB_ORG:-Syneca}
 
 # Debugger flag used by legacy code
 DEBUGGER=${DEBUGGER:-no}

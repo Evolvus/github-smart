@@ -52,8 +52,17 @@ function insertIssueIntoDatabase($pdo, $issue, $projectData = null) {
     $gh_id = $issue['number'] ?? 0;
     $gh_node_id = $issue['node_id'] ?? '';
     $gh_id_url = $issue['html_url'] ?? '';
-    $repo = $issue['repository']['name'] ?? '';
-    $repo_url = $issue['repository']['html_url'] ?? '';
+    
+    // Extract repository name from repository_url (for search API response)
+    $repo = '';
+    $repo_url = '';
+    if (isset($issue['repository_url'])) {
+        $repo_url = $issue['repository_url'];
+        $repo = basename($repo_url);
+    } elseif (isset($issue['repository']['name'])) {
+        $repo = $issue['repository']['name'];
+        $repo_url = $issue['repository']['html_url'] ?? '';
+    }
     $issue_text = $issue['title'] ?? '';
     $client = '';
     $assigned_date = isset($issue['created_at']) ? date('Y-m-d', strtotime($issue['created_at'])) : date('Y-m-d');
@@ -73,11 +82,31 @@ function insertIssueIntoDatabase($pdo, $issue, $projectData = null) {
         $gh_project_title = '';
     }
 
-    // Insert issue into database
+    // Set project URL
+    $gh_project_url = $projectData && is_array($projectData) ? ($projectData['url'] ?? '') : '';
+    
+    // Insert issue into database with ON DUPLICATE KEY UPDATE
     $stmt = $pdo->prepare(
         "INSERT INTO gh_issues (gh_id, gh_node_id, gh_id_url, repo, repo_url, gh_project_url, issue_text, client, assigned_date, target_date, 
         gh_json, assignee, gh_project, gh_project_title, last_updated_at, closed_at, gh_state) VALUES 
-        (:gh_id, :gh_node_id, :gh_id_url, :repo, :repo_url, :gh_project_url, :issue_text, :client, :assigned_date, :target_date, :gh_json, :assignee, :gh_project, :gh_project_title, :updated_at, :closed_at, :gh_state)"
+        (:gh_id, :gh_node_id, :gh_id_url, :repo, :repo_url, :gh_project_url, :issue_text, :client, :assigned_date, :target_date, :gh_json, :assignee, :gh_project, :gh_project_title, :updated_at, :closed_at, :gh_state)
+        ON DUPLICATE KEY UPDATE 
+        gh_id = VALUES(gh_id),
+        gh_id_url = VALUES(gh_id_url),
+        repo = VALUES(repo),
+        repo_url = VALUES(repo_url),
+        gh_project_url = VALUES(gh_project_url),
+        issue_text = VALUES(issue_text),
+        client = VALUES(client),
+        assigned_date = VALUES(assigned_date),
+        target_date = VALUES(target_date),
+        gh_json = VALUES(gh_json),
+        assignee = VALUES(assignee),
+        gh_project = VALUES(gh_project),
+        gh_project_title = VALUES(gh_project_title),
+        last_updated_at = VALUES(last_updated_at),
+        closed_at = VALUES(closed_at),
+        gh_state = VALUES(gh_state)"
     );
     
     $stmt->bindParam(':gh_id', $gh_id);
@@ -85,7 +114,7 @@ function insertIssueIntoDatabase($pdo, $issue, $projectData = null) {
     $stmt->bindParam(':gh_id_url', $gh_id_url);
     $stmt->bindParam(':repo', $repo);
     $stmt->bindParam(':repo_url', $repo_url);
-    $stmt->bindParam(':gh_project_url', '');
+    $stmt->bindParam(':gh_project_url', $gh_project_url);
     $stmt->bindParam(':issue_text', $issue_text);
     $stmt->bindParam(':client', $client);
     $stmt->bindParam(':assigned_date', $assigned_date);
@@ -100,7 +129,7 @@ function insertIssueIntoDatabase($pdo, $issue, $projectData = null) {
 
     try {
         $stmt->execute();
-        write_log("Inserted issue #{$gh_id}: {$issue_text} - Project: {$gh_project_title}");
+        write_log("Inserted/Updated issue #{$gh_id}: {$issue_text} - Project: {$gh_project_title}");
     } catch (PDOException $e) {
         write_log("Database Error inserting issue #{$gh_id}: " . $e->getMessage());
         return;
@@ -113,7 +142,7 @@ function insertIssueIntoDatabase($pdo, $issue, $projectData = null) {
             if (is_array($label) && isset($label['name']) && isset($label['color'])) {
                 $tag = $label['name'];
                 $color = $label['color'];
-                $stmt = $pdo->prepare("INSERT INTO gh_issue_tags (gh_node_id, tag, color) VALUES (:gh_node_id, :tag, :color)");
+                $stmt = $pdo->prepare("INSERT INTO gh_issue_tags (gh_node_id, tag, color) VALUES (:gh_node_id, :tag, :color) ON DUPLICATE KEY UPDATE color = VALUES(color)");
                 $stmt->bindParam(':gh_node_id', $gh_node_id);
                 $stmt->bindParam(':tag', $tag);
                 $stmt->bindParam(':color', $color);
@@ -136,7 +165,8 @@ function fetchAllIssuesWithProjects($githubOrg, $githubToken, $appName) {
     write_log("Starting to fetch issues from GitHub API...");
     
     while (true) {
-        $apiUrl = "https://api.github.com/orgs/{$githubOrg}/issues?filter=all&state=open&per_page={$perPage}&page={$page}";
+        // Use the correct GitHub API endpoint for organization issues
+        $apiUrl = "https://api.github.com/search/issues?q=org:{$githubOrg}+is:issue+is:open&per_page={$perPage}&page={$page}";
         
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_URL, $apiUrl);
@@ -152,17 +182,18 @@ function fetchAllIssuesWithProjects($githubOrg, $githubToken, $appName) {
         curl_close($curl);
         
         if ($httpCode !== 200) {
-            write_log("GitHub API error: HTTP {$httpCode} for page {$page}");
+            write_log("GitHub API error: HTTP {$httpCode} for page {$page}. Response: " . substr($response, 0, 200));
             break;
         }
         
-        $issues = json_decode($response, true);
+        $data = json_decode($response, true);
         
-        if (empty($issues)) {
+        if (!isset($data['items']) || empty($data['items'])) {
             write_log("No more issues found on page {$page}");
             break;
         }
         
+        $issues = $data['items'];
         write_log("Fetched " . count($issues) . " issues from page {$page}");
         
         foreach ($issues as $issue) {
@@ -170,8 +201,12 @@ function fetchAllIssuesWithProjects($githubOrg, $githubToken, $appName) {
                 continue; // Skip pull requests
             }
             
+            // Extract repository name from the issue URL
+            $repoUrl = $issue['repository_url'];
+            $repoName = basename($repoUrl);
+            
             // For each issue, fetch its project assignments
-            $projectData = fetchIssueProjects($githubOrg, $githubToken, $appName, $issue['repository']['name'], $issue['number']);
+            $projectData = fetchIssueProjects($githubOrg, $githubToken, $appName, $repoName, $issue['number']);
             $issue['project_data'] = $projectData;
             $allIssues[] = $issue;
         }

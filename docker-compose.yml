@@ -16,7 +16,8 @@ services:
       DB_NAME: project_management
       DB_USER: github_smart_user
       DB_PASSWORD: github_smart_password
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-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}
+      GITHUB_ORG: ${GITHUB_ORG:-Syneca}
     ports:
       - "8081:8080"
     volumes:

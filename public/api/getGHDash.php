@@ -133,21 +133,33 @@ function handleLatestIssues($pdo) {
 
 function handleIssuesByProject($pdo) {
     $project = validateInput($_GET['projectId'] ?? '', 'string');
-    $query = "SELECT * FROM gh_issues WHERE 1=1";
     
     if ($project) {
         if ($project === "UNASSIGNED") {
-            $query .= " AND (gh_project IS NULL OR gh_project = '')";
+            // Get issues that are NOT in any project board
+            $query = "
+                SELECT i.* 
+                FROM gh_issues i 
+                WHERE i.gh_node_id NOT IN (SELECT DISTINCT gh_node_id FROM gh_issue_project_status)
+                ORDER BY i.assigned_date DESC
+            ";
+            $stmt = $pdo->prepare($query);
         } else {
-            $query .= " AND gh_project = :project";
+            // Get issues that are assigned to the specific project board
+            $query = "
+                SELECT i.* 
+                FROM gh_issues i 
+                INNER JOIN gh_issue_project_status p ON i.gh_node_id = p.gh_node_id 
+                WHERE p.project_id = :project
+                ORDER BY i.assigned_date DESC
+            ";
+            $stmt = $pdo->prepare($query);
+            $stmt->bindValue(':project', $project, PDO::PARAM_STR);
         }
-    }
-    
-    $query .= " ORDER BY assigned_date DESC";
-    $stmt = $pdo->prepare($query);
-    
-    if ($project && $project !== "UNASSIGNED") {
-        $stmt->bindValue(':project', $project, PDO::PARAM_STR);
+    } else {
+        // If no project specified, return all issues
+        $query = "SELECT * FROM gh_issues ORDER BY assigned_date DESC";
+        $stmt = $pdo->prepare($query);
     }
     
     $stmt->execute();

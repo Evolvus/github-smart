@@ -281,8 +281,11 @@ function loadStatusBoard() {
     // Get project board status data
     fetch(`api/getProjectStatus.php?action=all`)
         .then(response => response.json())
-        .then(data => {
-            console.log('Project board status data:', data);
+        .then(response => {
+            console.log('Project board status data:', response);
+            
+            // Extract the data array from the response
+            const data = response.data || [];
             
             // Store all project data globally
             window.allProjectData = data;

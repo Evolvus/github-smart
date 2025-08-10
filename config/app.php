@@ -26,7 +26,12 @@ function logError($message, $type = 'ERROR', $context = []) {
         $logMessage .= " | Context: " . json_encode($context);
     }
     
-    file_put_contents(__DIR__ . '/app.log', $logMessage . PHP_EOL, FILE_APPEND);
+    // Try to write to log file, but don't fail if we can't
+    try {
+        @file_put_contents(__DIR__ . '/app.log', $logMessage . PHP_EOL, FILE_APPEND);
+    } catch (Exception $e) {
+        // Silently fail if we can't write to log file
+    }
 }
 
 // Custom success logging function
