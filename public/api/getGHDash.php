@@ -136,21 +136,20 @@ function handleIssuesByProject($pdo) {
     
     if ($project) {
         if ($project === "UNASSIGNED") {
-            // Get issues that are NOT in any project board
+            // Get issues that are NOT assigned to any project
             $query = "
                 SELECT i.* 
                 FROM gh_issues i 
-                WHERE i.gh_node_id NOT IN (SELECT DISTINCT gh_node_id FROM gh_issue_project_status)
+                WHERE i.gh_project IS NULL OR i.gh_project = ''
                 ORDER BY i.assigned_date DESC
             ";
             $stmt = $pdo->prepare($query);
         } else {
-            // Get issues that are assigned to the specific project board
+            // Get issues that are assigned to the specific project
             $query = "
                 SELECT i.* 
                 FROM gh_issues i 
-                INNER JOIN gh_issue_project_status p ON i.gh_node_id = p.gh_node_id 
-                WHERE p.project_id = :project
+                WHERE i.gh_project = :project
                 ORDER BY i.assigned_date DESC
             ";
             $stmt = $pdo->prepare($query);
