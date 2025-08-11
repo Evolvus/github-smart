@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
+
 # Default values
 IMAGE="ghcr.io/evolvus/github-smart:latest"
 APP_NAME="github-smart-app"
